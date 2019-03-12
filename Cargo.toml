@@ -1,0 +1,14 @@
+[package]
+name = "gitkv"
+version = "0.1.0"
+description = "gitkv is a server for using git as a key value store for text files"
+authors = ["Intent HQ <engineering@intenthq.com>"]
+edition = "2018"
+
+[dependencies]
+actix-web = "0.7.*"
+clap = "2"
+git2 = "0.8.*"
+listenfd = "0.3"
+serde = "1"
+serde_derive = "1"
