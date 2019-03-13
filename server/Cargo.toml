@@ -6,6 +6,7 @@ authors = ["Intent HQ <engineering@intenthq.com>"]
 edition = "2018"
 
 [dependencies]
+git = { path = "../git" }
 actix-web = "0.7.*"
 clap = "2"
 git2 = "0.8.*"

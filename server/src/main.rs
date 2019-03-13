@@ -9,6 +9,7 @@ extern crate listenfd;
 use actix_web::{http, server, App, Path, Query, Responder};
 use git2::Repository;
 use listenfd::ListenFd;
+use git;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
@@ -71,21 +72,9 @@ fn repo_handler(path_params: Path<PathParams>, query_params: Query<QueryParams>)
     let repo_path = format!("{}{}", DEFAULT_REPO_PATH, path_params.repo);
     let reference = format!("refs/{}", query_params.reference);
     let repo = Repository::open(repo_path).unwrap();
-    let f = cat_file(&repo, &reference, &query_params.file);
+    let f = git::cat_file(&repo, &reference, &query_params.file);
     //TODO https://actix.rs/docs/errors/
     f.unwrap()
-}
-
-fn cat_file(repo: &Repository, reference: &str, filename: &str) -> Result<String, AppError> {
-    let reference = repo.find_reference(reference)?;
-
-    let tree = reference.peel_to_tree()?;
-
-    let path = std::path::Path::new(filename);
-    let te = tree.get_path(path)?;
-    let blob = repo.find_blob(te.id())?;
-
-    Ok(String::from_utf8_lossy(blob.content()).to_string())
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
