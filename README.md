@@ -60,7 +60,6 @@ Some people has previously mentioned the idea to use [git as a database](https:/
 - https://github.com/mirage/irmin
 - http://orpheus-db.github.io/
 - https://www.klonio.com/
-- 
 
 ## How to contribute
 
