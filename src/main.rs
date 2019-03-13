@@ -1,10 +1,12 @@
-#[macro_use] extern crate clap;
-#[macro_use] extern crate serde_derive;
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate serde_derive;
 extern crate actix_web;
 extern crate git2;
 extern crate listenfd;
 
-use actix_web::{server, App, Path, Query, Responder, http};
+use actix_web::{http, server, App, Path, Query, Responder};
 use git2::Repository;
 use listenfd::ListenFd;
 
@@ -15,27 +17,27 @@ const DEFAULT_REPO_PATH: &str = "./";
 #[derive(Debug)]
 enum AppError {
     GitError(git2::Error),
-    ObjectNotFound(String)
+    ObjectNotFound(String),
 }
 
 impl From<git2::Error> for AppError {
-    fn from(error:git2::Error) -> Self {
+    fn from(error: git2::Error) -> Self {
         match error.code() {
             git2::ErrorCode::NotFound => AppError::ObjectNotFound(error.to_string()),
-            _ => AppError::GitError(error)
+            _ => AppError::GitError(error),
         }
     }
 }
 
 #[derive(Deserialize)]
 struct PathParams {
-    repo: String
+    repo: String,
 }
 
 #[derive(Deserialize)]
 struct QueryParams {
     reference: String,
-    file: String
+    file: String,
 }
 
 fn main() {
@@ -50,9 +52,9 @@ fn main() {
 fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> App<()>> {
     let mut listenfd = ListenFd::from_env();
     let server: server::HttpServer<App<()>, fn() -> App<()>> = server::new(|| {
-        App::new().resource(
-            "/repo/{repo}",
-            |r| r.method(http::Method::GET).with(repo_handler))
+        App::new().resource("/repo/{repo}", |r| {
+            r.method(http::Method::GET).with(repo_handler)
+        })
     });
 
     match listenfd.take_tcp_listener(0).unwrap() {
@@ -75,7 +77,6 @@ fn repo_handler(path_params: Path<PathParams>, query_params: Query<QueryParams>)
 }
 
 fn cat_file(repo: &Repository, reference: &str, filename: &str) -> Result<String, AppError> {
-
     let reference = repo.find_reference(reference)?;
 
     let tree = reference.peel_to_tree()?;
@@ -92,20 +93,22 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
         .version(crate_version!())
         .author(crate_authors!("\n"))
         .about(crate_description!())
-        .arg(clap::Arg::with_name("port")
-            .short("p")
-            .long("port")
-            .takes_value(true)
-            .value_name("PORT")
-            .default_value(DEFAULT_PORT)
-            .help("port to listen to")
+        .arg(
+            clap::Arg::with_name("port")
+                .short("p")
+                .long("port")
+                .takes_value(true)
+                .value_name("PORT")
+                .default_value(DEFAULT_PORT)
+                .help("port to listen to"),
         )
-        .arg(clap::Arg::with_name("host")
-            .short("h")
-            .long("host")
-            .takes_value(true)
-            .value_name("HOST")
-            .default_value(DEFAULT_HOST)
-            .help("host to listen to")
+        .arg(
+            clap::Arg::with_name("host")
+                .short("h")
+                .long("host")
+                .takes_value(true)
+                .value_name("HOST")
+                .default_value(DEFAULT_HOST)
+                .help("host to listen to"),
         )
 }
