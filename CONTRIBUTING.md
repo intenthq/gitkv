@@ -1,4 +1,4 @@
-# Contributing to Gitk
+# Contributing to Gitkv
 
 ## Code of Conduct
 
@@ -7,7 +7,7 @@ By participating, you are expected to uphold this code.
 
 ## How Can I Contribute
 
-Any contribution is welcome, raise a bug (and fix it! :-)) request or add a new feature, add some documentation...
+Any contribution is welcome, raise a bug (and fix it! 😄) request or add a new feature, add some documentation...
 
 You can also take a look at the [issues](https://github.com/intenthq/gitkv/issues) and pick the one you like better.
 
