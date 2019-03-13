@@ -1,4 +1,4 @@
-# Gitkv (https://travis-ci.org/intenthq/gitkv.svg?branch=master)](https://travis-ci.org/intenthq/gitkv)
+# Gitkv [![Build Status](https://travis-ci.org/intenthq/gitkv.svg?branch=master)](https://travis-ci.org/intenthq/gitkv)
 
 Gitkv is a server for using git as a key value store for text files
 
