@@ -10,4 +10,14 @@ matrix:
     - rust: nightly
   fast_finish: true
 
+before_script:
+  - cargo install --force cargo-audit
+  - rustup component add clippy
+
+script:
+  - cargo build
+  - cargo clippy --all-targets --all-features -- -D warnings
+  - cargo test
+  - cargo audit
+
 cache: cargo
