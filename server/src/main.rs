@@ -1,15 +1,11 @@
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate serde_derive;
 extern crate actix_web;
-extern crate git2;
 extern crate listenfd;
 
-use actix_web::{http, server, App, Path, Query, Responder, Binary};
-use git2::Repository;
+use actix_web::{server, App};
 use listenfd::ListenFd;
-use git;
+use handlers::RepoHandler;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
@@ -30,17 +26,6 @@ impl From<git2::Error> for AppError {
     }
 }
 
-#[derive(Deserialize)]
-struct PathParams {
-    repo: String,
-}
-
-#[derive(Deserialize)]
-struct QueryParams {
-    reference: String,
-    file: String,
-}
-
 fn main() {
     let args = parse_args().get_matches();
 
@@ -51,11 +36,11 @@ fn main() {
 }
 
 fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> App<()>> {
+
     let mut listenfd = ListenFd::from_env();
     let server: server::HttpServer<App<()>, fn() -> App<()>> = server::new(|| {
-        App::new().resource("/repo/{repo}", |r| {
-            r.method(http::Method::GET).with(repo_handler)
-        })
+        App::new()
+            .resource("/repo/{repo}", |r| r.h(RepoHandler{ repo_root: DEFAULT_REPO_PATH.to_string()}))
     });
 
     match listenfd.take_tcp_listener(0).expect("can't take tcp listener") {
@@ -66,16 +51,6 @@ fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> 
             server.bind(address).expect("can't bind into address")
         }
     }
-}
-
-fn repo_handler(path_params: Path<PathParams>, query_params: Query<QueryParams>) -> impl Responder {
-    let repo_path = format!("{}{}", DEFAULT_REPO_PATH, path_params.repo);
-    let reference = format!("refs/{}", query_params.reference);
-    let repo = Repository::open(repo_path).expect("can't open repo");
-    let f = git::cat_file(&repo, &reference, &query_params.file).expect("can't cat file");
-    //TODO https://actix.rs/docs/errors/
-    //TODO return proper content type depending on the content of the blob
-    Binary::from(f)
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
