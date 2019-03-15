@@ -6,10 +6,8 @@ authors = ["Intent HQ <engineering@intenthq.com>"]
 edition = "2018"
 
 [dependencies]
-git = { path = "../git" }
+handlers = { path = "../handlers" }
 actix-web = "^0.7.18"
 clap = "^2.32.0"
 git2 = "^0.8.0"
 listenfd = "^0.3.3"
-serde = "^1.0.89"
-serde_derive = "^1.0.89"

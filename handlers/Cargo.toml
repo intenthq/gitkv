@@ -1,0 +1,12 @@
+[package]
+name = "handlers"
+version = "0.1.0"
+authors = ["Intent HQ <engineering@intenthq.com>"]
+edition = "2018"
+
+[dependencies]
+git = { path = "../git" }
+actix-web = "0.7.*"
+git2 = "0.8.*"
+serde = "1"
+serde_derive = "1"
