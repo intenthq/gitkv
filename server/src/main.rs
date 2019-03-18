@@ -6,7 +6,7 @@ extern crate actix_web;
 extern crate git2;
 extern crate listenfd;
 
-use actix_web::{http, server, App, Path, Query, Responder};
+use actix_web::{http, server, App, Path, Query, Responder, Binary};
 use git2::Repository;
 use listenfd::ListenFd;
 use git;
@@ -72,9 +72,10 @@ fn repo_handler(path_params: Path<PathParams>, query_params: Query<QueryParams>)
     let repo_path = format!("{}{}", DEFAULT_REPO_PATH, path_params.repo);
     let reference = format!("refs/{}", query_params.reference);
     let repo = Repository::open(repo_path).unwrap();
-    let f = git::cat_file(&repo, &reference, &query_params.file);
+    let f = git::cat_file(&repo, &reference, &query_params.file).unwrap();
     //TODO https://actix.rs/docs/errors/
-    f.unwrap()
+    //TODO return proper content type depending on the content of the blob
+    Binary::from(f)
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
