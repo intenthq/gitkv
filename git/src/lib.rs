@@ -95,7 +95,7 @@ mod tests {
             .expect("can't do first commit");
 
         callback(&repo);
-        dir.close().unwrap();
+        dir.close().expect("couldn't close the dir");
     }
 
 }
