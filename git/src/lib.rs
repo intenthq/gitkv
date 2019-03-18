@@ -1,18 +1,33 @@
 extern crate git2;
 
 use git2::{Error, Repository};
+use std::path::Path;
 
-/// Given an existing git repository, it will read the blob that the reference and the filename
-/// point to and return it as a String.
-pub fn cat_file(repo: &Repository, reference: &str, filename: &str) -> Result<Vec<u8>, Error> {
-    let reference = repo.find_reference(reference)?;
+pub trait GitOps {
+    fn cat_file(&self, repo_path: &Path, reference: &str, filename: &str)
+        -> Result<Vec<u8>, Error>;
+}
 
-    let tree = reference.peel_to_tree()?;
+pub struct GitHelper;
 
-    let path = std::path::Path::new(filename);
-    let te = tree.get_path(path)?;
+impl GitOps for GitHelper {
+    /// Given an existing git repository, it will read the blob that the reference and the filename
+    /// point to and return it as a String.
+    fn cat_file(
+        &self,
+        repo_path: &Path,
+        reference: &str,
+        filename: &str,
+    ) -> Result<Vec<u8>, Error> {
+        let repo = Repository::open(repo_path)?;
 
-    repo.find_blob(te.id()).map(|x| x.content().to_owned())
+        let reference = repo.find_reference(reference)?;
+        let tree = reference.peel_to_tree()?;
+        let path = std::path::Path::new(filename);
+        let te = tree.get_path(path)?;
+
+        repo.find_blob(te.id()).map(|x| x.content().to_owned())
+    }
 }
 
 #[cfg(test)]
@@ -20,26 +35,42 @@ mod tests {
 
     extern crate tempdir;
 
-    use super::cat_file;
+    use super::{GitHelper, GitOps};
 
     use git2::Repository;
     use std::fs;
     use std::io::Write;
     use std::path::Path;
 
+    fn git_cat_file(
+        repo_path: &Path,
+        reference: &str,
+        filename: &str,
+    ) -> Result<Vec<u8>, git2::Error> {
+        let gh = GitHelper {};
+        gh.cat_file(repo_path, reference, filename)
+    }
+
+    fn git_cat_file_err(repo_path: &Path, reference: &str, filename: &str) -> git2::Error {
+        git_cat_file(repo_path, reference, filename).expect_err("should be an error")
+    }
+
     #[test]
     fn test_cat_file_with_existing_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo| {
-            let res = cat_file(repo, "refs/heads/master", "dir/existing.file").expect("should not give error");
-            assert_eq!(std::str::from_utf8(&res).expect("valid utf8"), "file content");
+            let res =
+                git_cat_file(repo, "refs/heads/master", "dir/existing.file").expect("should be ok");
+            assert_eq!(
+                std::str::from_utf8(&res).expect("valid utf8"),
+                "file content"
+            );
         })
     }
 
     #[test]
     fn test_cat_file_with_non_existing_ref() {
         with_repo("file content", "dir/existing.file", |repo| {
-            let res = cat_file(repo, "refs/heads/non-existing", "dir/existing.file")
-                .expect_err("should be an error");
+            let res = git_cat_file_err(repo, "refs/heads/non-existing", "dir/existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Reference);
         })
@@ -48,8 +79,7 @@ mod tests {
     #[test]
     fn test_cat_file_with_non_existing_file() {
         with_repo("file content", "dir/existing.file", |repo| {
-            let res = cat_file(repo, "refs/heads/master", "non-existing.file")
-                .expect_err("should be an error");
+            let res = git_cat_file_err(repo, "refs/heads/master", "non-existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Tree);
         })
@@ -58,7 +88,7 @@ mod tests {
     #[test]
     fn test_cat_file_with_dir() {
         with_repo("content", "dir/existing.file", |repo| {
-            let res = cat_file(repo, "refs/heads/master", "dir").expect_err("should be an error");
+            let res = git_cat_file_err(repo, "refs/heads/master", "dir");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Invalid);
         })
@@ -66,7 +96,7 @@ mod tests {
 
     pub fn with_repo<F>(file_contents: &str, file: &str, callback: F)
     where
-        F: Fn(&Repository),
+        F: Fn(&Path),
     {
         let dir = tempdir::TempDir::new("testgitrepo").expect("can't create tmp dir");
 
@@ -94,7 +124,7 @@ mod tests {
             })
             .expect("can't do first commit");
 
-        callback(&repo);
+        callback(repo.path());
         dir.close().expect("couldn't close the dir");
     }
 

@@ -1,8 +1,7 @@
 #[macro_use]
 extern crate serde_derive;
 
-use actix_web::{FromRequest, dev::Handler, Binary, HttpRequest, Path, Query};
-use git2::Repository;
+use actix_web::{dev::Handler, Binary, FromRequest, HttpRequest, Path, Query};
 use git::{GitHelper, GitOps};
 use std::path::PathBuf;
 
@@ -18,8 +17,8 @@ pub struct QueryParams {
 }
 
 pub struct RepoHandler {
-  pub repo_root: String,
-  git_ops: Box<GitOps>,
+    pub repo_root: String,
+    git_ops: Box<GitOps>,
 }
 
 impl<S> Handler<S> for RepoHandler {

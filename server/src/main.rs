@@ -40,7 +40,7 @@ fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> 
     let mut listenfd = ListenFd::from_env();
     let server: server::HttpServer<App<()>, fn() -> App<()>> = server::new(|| {
         App::new()
-            .resource("/repo/{repo}", |r| r.h(RepoHandler{ repo_root: DEFAULT_REPO_PATH.to_string()}))
+            .resource("/repo/{repo}", |r| r.h(RepoHandler::new(DEFAULT_REPO_PATH.to_string())))
     });
 
     match listenfd.take_tcp_listener(0).expect("can't take tcp listener") {
