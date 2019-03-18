@@ -58,12 +58,12 @@ fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> 
         })
     });
 
-    match listenfd.take_tcp_listener(0).unwrap() {
+    match listenfd.take_tcp_listener(0).expect("can't take tcp listener") {
         Some(l) => server.listen(l),
         None => {
             let address = format!("{}:{}", host, port);
             println!("Listening to {}", address);
-            server.bind(address).unwrap()
+            server.bind(address).expect("can't bind into address")
         }
     }
 }
@@ -71,8 +71,8 @@ fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> 
 fn repo_handler(path_params: Path<PathParams>, query_params: Query<QueryParams>) -> impl Responder {
     let repo_path = format!("{}{}", DEFAULT_REPO_PATH, path_params.repo);
     let reference = format!("refs/{}", query_params.reference);
-    let repo = Repository::open(repo_path).unwrap();
-    let f = git::cat_file(&repo, &reference, &query_params.file).unwrap();
+    let repo = Repository::open(repo_path).expect("can't open repo");
+    let f = git::cat_file(&repo, &reference, &query_params.file).expect("can't cat file");
     //TODO https://actix.rs/docs/errors/
     //TODO return proper content type depending on the content of the blob
     Binary::from(f)
