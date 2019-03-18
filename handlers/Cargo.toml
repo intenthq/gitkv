@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 git = { path = "../git" }
-actix-web = "0.7.*"
-git2 = "0.8.*"
-serde = "1"
-serde_derive = "1"
+actix-web = "^0.7.18"
+git2 = "^0.8.0"
+serde = "^1.0.89"
+serde_derive = "^1.0.89"
