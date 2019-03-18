@@ -4,16 +4,15 @@ use git2::{Error, Repository};
 
 /// Given an existing git repository, it will read the blob that the reference and the filename
 /// point to and return it as a String.
-pub fn cat_file(repo: &Repository, reference: &str, filename: &str) -> Result<String, Error> {
+pub fn cat_file(repo: &Repository, reference: &str, filename: &str) -> Result<Vec<u8>, Error> {
     let reference = repo.find_reference(reference)?;
 
     let tree = reference.peel_to_tree()?;
 
     let path = std::path::Path::new(filename);
     let te = tree.get_path(path)?;
-    let blob = repo.find_blob(te.id())?;
 
-    Ok(String::from_utf8_lossy(blob.content()).to_string())
+    repo.find_blob(te.id()).map(|x| x.content().to_owned())
 }
 
 #[cfg(test)]
@@ -31,8 +30,8 @@ mod tests {
     #[test]
     fn test_cat_file_with_existing_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo| {
-            let res = cat_file(repo, "refs/heads/master", "dir/existing.file");
-            assert_eq!(res.ok(), Some(String::from("file content")));
+            let res = cat_file(repo, "refs/heads/master", "dir/existing.file").expect("should not give error");
+            assert_eq!(std::str::from_utf8(&res).expect("valid utf8"), "file content");
         })
     }
 
