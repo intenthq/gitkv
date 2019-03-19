@@ -2,7 +2,7 @@
 extern crate serde_derive;
 
 use actix_web::{dev::Handler, Binary, FromRequest, HttpRequest, Path, Query};
-use git::{GitHelper, GitOps};
+use git::{LibGitOps, GitOps};
 use std::path::PathBuf;
 
 #[derive(Deserialize)]
@@ -42,7 +42,7 @@ impl RepoHandler {
     pub fn new(repo_root: String) -> RepoHandler {
         RepoHandler {
             repo_root,
-            git_ops: Box::new(GitHelper {}),
+            git_ops: Box::new(LibGitOps {}),
         }
     }
 }
