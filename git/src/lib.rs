@@ -8,9 +8,9 @@ pub trait GitOps {
         -> Result<Vec<u8>, Error>;
 }
 
-pub struct GitHelper;
+pub struct LibGitOps;
 
-impl GitOps for GitHelper {
+impl GitOps for LibGitOps {
     /// Given an existing git repository, it will read the blob that the reference and the filename
     /// point to and return it as a String.
     fn cat_file(
@@ -35,7 +35,7 @@ mod tests {
 
     extern crate tempdir;
 
-    use super::{GitHelper, GitOps};
+    use super::{LibGitOps, GitOps};
 
     use git2::Repository;
     use std::fs;
@@ -47,7 +47,7 @@ mod tests {
         reference: &str,
         filename: &str,
     ) -> Result<Vec<u8>, git2::Error> {
-        let gh = GitHelper {};
+        let gh = LibGitOps {};
         gh.cat_file(repo_path, reference, filename)
     }
 
