@@ -1,7 +1,7 @@
 FROM alpine/git
 
-COPY bin/entrypoint.sh /
-COPY bin/ssh-askpass.sh /
-COPY README.md /
+COPY README.md bin/* /
+
+ENV GIT_REPOS_PATH=/git-repos
 
 ENTRYPOINT [ "/entrypoint.sh" ]
