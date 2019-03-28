@@ -20,4 +20,10 @@ script:
   - cargo test
   - cargo audit
 
+deploy:
+  provider: cargo
+  if: branch = master and tag =~ /^*v[0-9]/
+  token:
+    secure: Li2AvBDYRDsS7RPtfqa/itcacAGXyNNGXn+6jiue5EbfZQGiuja3rVgfxBF2UmxouzIFSBZo3DWyouJtC2edmgIE6LudK6LipqGIN7kJh7w640elWlYOQAsqvpFeKHzk5wpEWobGS22/TP10uVNsG8nWGQMrCNBZRwFHqzWFKE6Cd9RyYo+kdCShVoY3+AB47EZ09DRfnIuE8qfslcgmh2yEVX1FiO/sDpHvKerHeS0YWKlhwc2qJUT9RXkR0P1HKY30Pjdu1Blfwf7VKG0k7qgW83cLsqqPE+N31ZlTz3tX0THZ5C+X0SiBzSwz1OBd4glSwOjQXxARqerpT1wfibserGYUfPWipFwTkp7cfqDjZONad3HYp8l964dxiXg+xXbwm6/xmwDRCYIUpF+4Y+Kd76YZ7xlDDIG6mdY4N3xQcjDABEQjaoIpnfak+7hVjXpyKB/e2shVPIUpBqwmZBTVW5Vplfxbf66fZ53KwsFQF3UB1sjOdxBEsuqBaKR7J62+b82p47K014bnO3wsuZ8ASyHdlZFdvr1tYxgoag3vkggoBQgDyIM3b0s69c5sazWKmHzgpNrYYgAQc00+yXhC3HEqQIVn9KG3wbFF9QkQRnqZLF6mhEcesHgVBwiJlYAcyiYCSChUywrMdm9+3A1FTwYEo5NesbQX1tC6f74=
+
 cache: cargo
