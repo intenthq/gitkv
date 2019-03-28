@@ -1,56 +1,83 @@
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate serde_derive;
 extern crate actix_web;
-extern crate listenfd;
 
-use actix_web::{server, App};
-use listenfd::ListenFd;
-use handlers::RepoHandler;
+use actix_web::actix::{Actor, Addr, System};
+use actix_web::{http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
+use futures::future::Future;
+use handlers::{CatFile, GitRepos};
+use std::path::Path;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
-const DEFAULT_REPO_PATH: &str = "./";
-
-#[derive(Debug)]
-enum AppError {
-    GitError(git2::Error),
-    ObjectNotFound(String),
-}
-
-impl From<git2::Error> for AppError {
-    fn from(error: git2::Error) -> Self {
-        match error.code() {
-            git2::ErrorCode::NotFound => AppError::ObjectNotFound(error.to_string()),
-            _ => AppError::GitError(error),
-        }
-    }
-}
+const DEFAULT_REPO_ROOT: &str = "./";
 
 fn main() {
     let args = parse_args().get_matches();
 
     let host = args.value_of("host").unwrap_or(DEFAULT_HOST);
     let port = args.value_of("port").unwrap_or(DEFAULT_PORT);
+    let repo_root = Path::new(args.value_of("repo-root").unwrap_or(DEFAULT_REPO_ROOT));
 
-    create_server(host, port).run();
+    run_server(host, port, repo_root);
 }
 
-fn create_server(host: &str, port: &str) -> server::HttpServer<App<()>, fn() -> App<()>> {
+#[derive(Deserialize)]
+pub struct PathParams {
+    pub repo: String,
+}
 
-    let mut listenfd = ListenFd::from_env();
-    let server: server::HttpServer<App<()>, fn() -> App<()>> = server::new(|| {
-        App::new()
-            .resource("/repo/{repo}", |r| r.h(RepoHandler::new(DEFAULT_REPO_PATH.to_string())))
-    });
+#[derive(Deserialize)]
+pub struct QueryParams {
+    pub reference: String,
+    pub file: String,
+}
 
-    match listenfd.take_tcp_listener(0).expect("can't take tcp listener") {
-        Some(l) => server.listen(l),
-        None => {
-            let address = format!("{}:{}", host, port);
-            println!("Listening to {}", address);
-            server.bind(address).expect("can't bind into address")
-        }
-    }
+pub struct AppState {
+    pub git_repos: Addr<GitRepos>,
+}
+
+fn run_server(host: &str, port: &str, repo_root: &Path) {
+    let _sys = System::new("gitkv-server");
+
+    let addr = GitRepos::new(git::load_repos(&repo_root).expect("can't load repos")).start();
+
+    let listen_address = format!("{}:{}", host, port);
+
+    server::new(move || {
+        App::with_state(AppState {
+            git_repos: addr.clone(),
+        })
+        .middleware(middleware::Logger::default())
+        .resource("/repo/{repo}", |r| r.method(http::Method::GET).f(get_repo))
+    })
+    .bind(listen_address)
+    .expect("can't bind into address")
+    .run();
+}
+
+fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
+    //TODO https://actix.rs/docs/errors/
+    let path_params = actix_web::Path::<PathParams>::extract(req).expect("Wrong path params");
+    let query_params = actix_web::Query::<QueryParams>::extract(req).expect("Wront query params");
+    let repo_key = path_params.repo.to_string();
+    let filename = query_params.file.to_string();
+    let reference = format!("refs/{}", query_params.reference);
+    let gr: &Addr<GitRepos> = &req.state().git_repos;
+    //TODO return proper content type depending on the content of the blob
+    gr.send(CatFile {
+            repo_key,
+            filename,
+            reference,
+        })
+        .map(|x| {
+            x.0.map(Binary::from)
+                .map_err(|e| actix_web::error::InternalError::new(e, http::StatusCode::NOT_FOUND))
+        })
+        //TODO don't wait and return the future itself
+        .wait()
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
@@ -75,5 +102,14 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
                 .value_name("HOST")
                 .default_value(DEFAULT_HOST)
                 .help("host to listen to"),
+        )
+        .arg(
+            clap::Arg::with_name("repo-root")
+                .short("r")
+                .long("repo-root")
+                .takes_value(true)
+                .value_name("PATH")
+                .default_value(DEFAULT_REPO_ROOT)
+                .help("path where the different repositories are located"),
         )
 }

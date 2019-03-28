@@ -7,10 +7,7 @@ license = "MIT"
 
 [dependencies]
 git = { path = "../git" }
-actix-web = "^0.7.18"
-git2 = "^0.8.0"
-serde = "^1.0.89"
-serde_derive = "^1.0.89"
+actix = "^0.7.9"
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
 # feature flag of openssl-sys which compiles libopenssl statically for us.
