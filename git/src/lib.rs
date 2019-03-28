@@ -1,11 +1,15 @@
-extern crate git2;
+pub extern crate git2;
 
 use git2::{Error, Repository};
-use std::path::Path;
+use std::{collections::HashMap, fs, io, path::Path};
 
 pub trait GitOps {
-    fn cat_file(&self, repo_path: &Path, reference: &str, filename: &str)
-        -> Result<Vec<u8>, Error>;
+    fn cat_file(
+        &self,
+        repo: &Repository,
+        reference: &str,
+        filename: &str,
+    ) -> Result<Vec<u8>, Error>;
 }
 
 pub struct LibGitOps;
@@ -15,12 +19,10 @@ impl GitOps for LibGitOps {
     /// point to and return it as a String.
     fn cat_file(
         &self,
-        repo_path: &Path,
+        repo: &Repository,
         reference: &str,
         filename: &str,
     ) -> Result<Vec<u8>, Error> {
-        let repo = Repository::open(repo_path)?;
-
         let reference = repo.find_reference(reference)?;
         let tree = reference.peel_to_tree()?;
         let path = std::path::Path::new(filename);
@@ -30,12 +32,31 @@ impl GitOps for LibGitOps {
     }
 }
 
+pub fn load_repos(root_path: &Path) -> Result<HashMap<String, Repository>, io::Error> {
+    let mut repos = HashMap::new();
+    if root_path.is_dir() {
+        for entry in fs::read_dir(root_path)? {
+            let path = entry.map(|x| x.path())?;
+            if path.is_dir() {
+                if let Some(fstem) = path.to_owned().file_stem() {
+                    // Just ignoring any error opening the repo as it means a directory is
+                    // not a valid git repo.
+                    let _ = Repository::open(path).map(|repo| {
+                        repos.insert(fstem.to_os_string().into_string().unwrap(), repo) //TODO remove unwrap
+                    });
+                }
+            }
+        }
+    }
+    Ok(repos)
+}
+
 #[cfg(test)]
 mod tests {
 
     extern crate tempdir;
 
-    use super::{LibGitOps, GitOps};
+    use super::{GitOps, LibGitOps};
 
     use git2::Repository;
     use std::fs;
@@ -43,7 +64,7 @@ mod tests {
     use std::path::Path;
 
     fn git_cat_file(
-        repo_path: &Path,
+        repo_path: &Repository,
         reference: &str,
         filename: &str,
     ) -> Result<Vec<u8>, git2::Error> {
@@ -51,7 +72,7 @@ mod tests {
         gh.cat_file(repo_path, reference, filename)
     }
 
-    fn git_cat_file_err(repo_path: &Path, reference: &str, filename: &str) -> git2::Error {
+    fn git_cat_file_err(repo_path: &Repository, reference: &str, filename: &str) -> git2::Error {
         git_cat_file(repo_path, reference, filename).expect_err("should be an error")
     }
 
@@ -96,7 +117,7 @@ mod tests {
 
     pub fn with_repo<F>(file_contents: &str, file: &str, callback: F)
     where
-        F: Fn(&Path),
+        F: Fn(&Repository),
     {
         let dir = tempdir::TempDir::new("testgitrepo").expect("can't create tmp dir");
 
@@ -124,7 +145,7 @@ mod tests {
             })
             .expect("can't do first commit");
 
-        callback(repo.path());
+        callback(&repo);
         dir.close().expect("couldn't close the dir");
     }
 
