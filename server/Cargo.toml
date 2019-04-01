@@ -7,7 +7,7 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-handlers = { path = "../handlers", version = "0.1.0" }
+handlers = { path = "../handlers" }
 actix-web = "^0.7.18"
 clap = "^2.32.0"
 git2 = "^0.8.0"
