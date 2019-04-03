@@ -16,6 +16,10 @@ Gitkv is also distributed as a Docker image that can be pulled from [Docker Hub]
 docker run intenthq/gitkv
 ```
 
+### Source
+
+To run Gitkv from source first [install Rust](https://www.rust-lang.org/tools/install) then use `cargo run`
+
 ## Usage
 
 ```
