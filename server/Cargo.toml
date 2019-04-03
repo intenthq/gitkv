@@ -12,3 +12,9 @@ actix-web = "^0.7.18"
 clap = "^2.32.0"
 git2 = "^0.8.0"
 listenfd = "^0.3.3"
+
+# When building for musl (ie. a static binary), we opt into the "vendored"
+# feature flag of openssl-sys which compiles libopenssl statically for us.
+[target.'cfg(target_env="musl")'.dependencies.openssl-sys]
+features = ["vendored"]
+version = "*"

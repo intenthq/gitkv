@@ -7,5 +7,11 @@ edition = "2018"
 [dependencies]
 git2 = "^0.8.0"
 
+# When building for musl (ie. a static binary), we opt into the "vendored"
+# feature flag of openssl-sys which compiles libopenssl statically for us.
+[target.'cfg(target_env="musl")'.dependencies.openssl-sys]
+features = ["vendored"]
+version = "*"
+
 [dev-dependencies]
 tempdir = "^0.3.5"
