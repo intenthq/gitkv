@@ -10,7 +10,11 @@ Releases of Gitkv are available as pre-compiled static binaries on the correspon
 
 ### Docker
 
-Gitkv is also distributed as a docker image that can be pulled from [Docker Hub](https://hub.docker.com/r/intenthq/gitkv)
+Gitkv is also distributed as a Docker image that can be pulled from [Docker Hub](https://hub.docker.com/r/intenthq/gitkv):
+
+```sh
+docker run intenthq/gitkv
+```
 
 ## Usage
 
