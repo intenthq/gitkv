@@ -1,35 +1,63 @@
 language: rust
 
-rust:
-  - nightly
-  - beta
-  - stable
+os:
+  - linux
+
+addons:
+  apt:
+    packages:
+      # For building MUSL static builds on Linux.
+      - musl-tools
 
 matrix:
+  fast_finish: true
   allow_failures:
     - rust: nightly
-  fast_finish: true
+  include:
+    - os: linux
+      rust: nightly
+      env: TARGET=x86_64-unknown-linux-musl
+    - os: linux
+      rust: beta
+      env: TARGET=x86_64-unknown-linux-musl
+    - os: linux
+      rust: stable
+      env: TARGET=x86_64-unknown-linux-musl
+    # - os: osx
+    #   rust: nightly
+    #   env: TARGET=x86_64-apple-darwin
+    # - os: osx
+    #   rust: beta
+    #   env: TARGET=x86_64-apple-darwin
+    # - os: osx
+    #   rust: stable
+    #   env: TARGET=x86_64-apple-darwin
 
 before_script:
+  - rustup target add $TARGET
   - cargo install --force cargo-audit
   - rustup component add clippy
 
 script:
-  - cargo build
+  - cargo build --target $TARGET --release
   - cargo clippy --all-targets --all-features -- -D warnings
-  - cargo test
+  - cargo test --target $TARGET
   - cargo audit
 
 before_deploy:
-  - export TRAVIS_TAG=$GIT_TAG
+  - mv target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET
+  - chmod +x target/$TARGET/release/gitkv-$TARGET
 
 deploy:
-  provider: cargo
-  token:
-    secure: Li2AvBDYRDsS7RPtfqa/itcacAGXyNNGXn+6jiue5EbfZQGiuja3rVgfxBF2UmxouzIFSBZo3DWyouJtC2edmgIE6LudK6LipqGIN7kJh7w640elWlYOQAsqvpFeKHzk5wpEWobGS22/TP10uVNsG8nWGQMrCNBZRwFHqzWFKE6Cd9RyYo+kdCShVoY3+AB47EZ09DRfnIuE8qfslcgmh2yEVX1FiO/sDpHvKerHeS0YWKlhwc2qJUT9RXkR0P1HKY30Pjdu1Blfwf7VKG0k7qgW83cLsqqPE+N31ZlTz3tX0THZ5C+X0SiBzSwz1OBd4glSwOjQXxARqerpT1wfibserGYUfPWipFwTkp7cfqDjZONad3HYp8l964dxiXg+xXbwm6/xmwDRCYIUpF+4Y+Kd76YZ7xlDDIG6mdY4N3xQcjDABEQjaoIpnfak+7hVjXpyKB/e2shVPIUpBqwmZBTVW5Vplfxbf66fZ53KwsFQF3UB1sjOdxBEsuqBaKR7J62+b82p47K014bnO3wsuZ8ASyHdlZFdvr1tYxgoag3vkggoBQgDyIM3b0s69c5sazWKmHzgpNrYYgAQc00+yXhC3HEqQIVn9KG3wbFF9QkQRnqZLF6mhEcesHgVBwiJlYAcyiYCSChUywrMdm9+3A1FTwYEo5NesbQX1tC6f74=
+  provider: releases
+  skip_cleanup: true
+  api_key:
+    secure: fvMOLUfi9KoEudSyv2LtwgYP7bh+f1nelj/TeIjteP+u1Omz1p9pP6nIDCrie5tFtY3q4Jor+R7IZoffe/G6KAc7sI4Ndhmr8uB+S9US4gmRI98VMFdGGtjoZzro8Kdrg8+9R0exBgNXJW+ubduSsM0CzKq6HPxmd3TSKRt+2G5vLA5btMbLeeLc8xpmlGrEw2nCjUbEcPislGnQ54wrbrLb+u5SzjPD2G7v8dk1tksfgtcISMylb/aQ+UGrCmMHZfDhAZaooLzxRF+aBtXtku+BFWGjubGa4H/Fj0asKgRic4OzGCi9XwVoBYUgKyb3J7tyO+DtKihBooPytgNcN6zMhqGgxPI6sIFijGatoUZMGKN/J42fpj2f719riaGGuQOcjXbLENl3GfooO97E7mf84SpozhkjYEHEyLRMZTJVk66mCBcrAd6gIa2hdOB3l4Mxy1MzfmDbWwDDHsVflr7fBW8QaWdazziIR12N3iyC7cQdH2lc13l8/N5ffbeTzjWGscZjQWBRECTXjuDklQ9gmG3qlUCdKKsDqMaiuTl21Pi9uqeuebgZS2aVf+y40mdzKd3k89IBUEdMKrvqCvpCV16hm1rlxMtJaVxd9C6gjjrn3hkCWSUXIYzDrLXqwMNSZm02qIu6VEjTyy7rbCcr7fZgti+PbeP43MPvq9s=
+  file: target/$TARGET/release/gitkv-$TARGET
   on:
+    rust: stable
     tags: true
-    condition: $TRAVIS_TAG =~ /^v[0-9]+.[0-9]+.[0-9]+/
-
+    branch:
+      - /^v\d+\.\d+\.\d+.*$/
 
 cache: cargo
