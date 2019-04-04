@@ -13,6 +13,7 @@ use std::path::Path;
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
 const DEFAULT_REPO_ROOT: &str = "./";
+const DEFAULT_REFERENCE: &str = "heads/master";
 
 fn main() {
     let args = parse_args().get_matches();
@@ -31,7 +32,7 @@ pub struct PathParams {
 
 #[derive(Deserialize)]
 pub struct QueryParams {
-    pub reference: String,
+    pub reference: Option<String>,
     pub file: String,
 }
 
@@ -64,7 +65,13 @@ fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
     let query_params = actix_web::Query::<QueryParams>::extract(req).expect("Wrong query params");
     let repo_key = path_params.repo.to_string();
     let filename = query_params.file.to_string();
-    let reference = format!("refs/{}", query_params.reference);
+    let reference = format!(
+        "refs/{}",
+        query_params
+            .reference
+            .as_ref()
+            .unwrap_or(&DEFAULT_REFERENCE.to_string())
+    );
     let gr: &Addr<GitRepos> = &req.state().git_repos;
     //TODO return proper content type depending on the content of the blob
     gr.send(CatFile {
