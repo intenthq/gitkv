@@ -35,7 +35,10 @@ matrix:
 
 before_script:
   - rustup target add $TARGET
-  - cargo install --force cargo-audit
+  # Cargo install fails if a crate is already installed — which it will be if it was cached.
+  # It recommends to use `--force`, but that _always_ recompiles from scratch which takes ~5 minutes.
+  # FIXME: Follow https://github.com/rust-lang/cargo/issues/6667 for a WIP fix on Cargo for this.
+  - cargo install cargo-audit || true
   - rustup component add clippy
 
 script:
