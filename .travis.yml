@@ -46,6 +46,7 @@ script:
 
 before_deploy:
   - mv target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET
+  - chmod +x target/$TARGET/release/gitkv-$TARGET
 
 deploy:
   provider: releases
