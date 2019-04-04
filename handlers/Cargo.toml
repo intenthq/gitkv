@@ -3,6 +3,7 @@ name = "handlers"
 version = "0.1.0"
 authors = ["Intent HQ <engineering@intenthq.com>"]
 edition = "2018"
+license = "MIT"
 
 [dependencies]
 git = { path = "../git" }
