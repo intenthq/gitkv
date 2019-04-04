@@ -61,7 +61,7 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
 fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
     //TODO https://actix.rs/docs/errors/
     let path_params = actix_web::Path::<PathParams>::extract(req).expect("Wrong path params");
-    let query_params = actix_web::Query::<QueryParams>::extract(req).expect("Wront query params");
+    let query_params = actix_web::Query::<QueryParams>::extract(req).expect("Wrong query params");
     let repo_key = path_params.repo.to_string();
     let filename = query_params.file.to_string();
     let reference = format!("refs/{}", query_params.reference);
