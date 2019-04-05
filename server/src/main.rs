@@ -75,16 +75,16 @@ fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
     let gr: &Addr<GitRepos> = &req.state().git_repos;
     //TODO return proper content type depending on the content of the blob
     gr.send(CatFile {
-            repo_key,
-            filename,
-            reference,
-        })
-        .map(|x| {
-            x.0.map(Binary::from)
-                .map_err(|e| actix_web::error::InternalError::new(e, http::StatusCode::NOT_FOUND))
-        })
-        //TODO don't wait and return the future itself
-        .wait()
+        repo_key,
+        filename,
+        reference,
+    })
+    .map(|x| {
+        x.0.map(Binary::from)
+            .map_err(|e| actix_web::error::InternalError::new(e, http::StatusCode::NOT_FOUND))
+    })
+    //TODO don't wait and return the future itself
+    .wait()
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
