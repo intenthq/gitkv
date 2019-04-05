@@ -43,7 +43,7 @@ pub struct AppState {
 fn run_server(host: &str, port: &str, repo_root: &Path) {
     let _sys = System::new("gitkv-server");
 
-    let addr = GitRepos::new(git::load_repos(&repo_root).expect("can't load repos")).start();
+    let addr = GitRepos::new(git::load_repos(&repo_root)).start();
 
     let listen_address = format!("{}:{}", host, port);
 
