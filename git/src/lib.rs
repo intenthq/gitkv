@@ -1,7 +1,7 @@
 pub extern crate git2;
 
 use git2::{Error, Repository};
-use std::{collections::HashMap, fs, io, path::Path};
+use std::{collections::HashMap, fs, path::Path};
 
 pub trait GitOps {
     fn cat_file(
@@ -32,23 +32,28 @@ impl GitOps for LibGitOps {
     }
 }
 
-pub fn load_repos(root_path: &Path) -> Result<HashMap<String, Repository>, io::Error> {
-    let mut repos = HashMap::new();
-    if root_path.is_dir() {
-        for entry in fs::read_dir(root_path)? {
-            let path = entry.map(|x| x.path())?;
-            if path.is_dir() {
-                if let Some(fstem) = path.to_owned().file_stem() {
-                    // Just ignoring any error opening the repo as it means a directory is
-                    // not a valid git repo.
-                    let _ = Repository::open(path).map(|repo| {
-                        repos.insert(fstem.to_os_string().into_string().unwrap(), repo) //TODO remove unwrap
-                    });
+pub fn load_repos(root_path: &Path) -> HashMap<String, Repository> {
+    fs::read_dir(root_path)
+        .expect("Failed to read repos directory")
+        .filter_map(|entry| {
+            entry.ok().and_then(|e| {
+                let path = e.path();
+                if path.is_dir() {
+                    let local_path = path.clone();
+                    let repo_name = local_path
+                        .file_stem()
+                        .and_then(|name| name.to_os_string().into_string().ok());
+
+                    repo_name.and_then(|name| {
+                        Repository::open(path).ok().and_then(|repo| Some((name, repo)))
+                    })
+                } else {
+                    None
                 }
-            }
-        }
-    }
-    Ok(repos)
+            })
+        })
+        .into_iter()
+        .collect()
 }
 
 #[cfg(test)]
