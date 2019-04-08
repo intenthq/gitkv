@@ -64,7 +64,7 @@ impl Handler<CatFile> for GitRepos {
                 .ops
                 .cat_file(repo, &task.reference, &task.filename)
                 .map_err(|x| x.to_string()),
-            None => Err("No repo found".to_string()),
+            None => Err(format!("No repo found with name {}", &task.repo_key)),
         })
     }
 }
