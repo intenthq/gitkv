@@ -52,7 +52,6 @@ pub fn load_repos(root_path: &Path) -> HashMap<String, Repository> {
                 }
             })
         })
-        .into_iter()
         .collect()
 }
 
