@@ -1,5 +1,11 @@
+sudo: required
 language: rust
 dist: xenial
+cache:
+  - cargo
+  - directories:
+      - "${HOME}/kcov/"
+
 os:
   - linux
 
@@ -8,6 +14,13 @@ addons:
     packages:
       # For building MUSL static builds on Linux.
       - musl-tools
+      - cmake
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - binutils-dev
+    sources:
+      - kalakris-cmake
 
 matrix:
   fast_finish: true
@@ -35,10 +48,12 @@ matrix:
 
 before_script:
   - rustup target add $TARGET
+  - export PATH=$HOME/.cargo/bin:$PATH
   # Cargo install fails if a crate is already installed — which it will be if it was cached.
   # It recommends to use `--force`, but that _always_ recompiles from scratch which takes ~5 minutes.
   # FIXME: Follow https://github.com/rust-lang/cargo/issues/6667 for a WIP fix on Cargo for this.
-  - cargo install cargo-audit || true
+  - cargo install cargo-audit || echo "cargo-update already installed"
+  - cargo install cargo-travis || echo "cargo-travis already installed"
   - rustup component add clippy
 
 script:
@@ -48,6 +63,11 @@ script:
   - cargo audit
   # Make a copy of the binary named nicely for the GitHub release, if needed.
   - cp target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET && chmod +x target/$TARGET/release/gitkv-$TARGET
+
+after_success:
+  # Generates repo test coverage and pushes it codecov
+  - cargo coverage --target $TARGET --kcov-build-location "${HOME}/kcov/"
+  - bash <(curl -s https://codecov.io/bash)
 
 deploy:
   # Push binaries to the GitHub release for this version.
@@ -69,5 +89,3 @@ deploy:
       os: linux
       tags: true
       branch: /^v\d+\.\d+\.\d+.*$/
-
-cache: cargo
