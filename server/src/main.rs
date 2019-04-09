@@ -8,7 +8,7 @@ extern crate log;
 extern crate env_logger;
 
 use actix_web::actix::{Actor, Addr, System};
-use actix_web::{http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
+use actix_web::{error, http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
 use env_logger::Env;
 use futures::future::Future;
 use handlers::{CatFile, GitRepos};
@@ -71,32 +71,32 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
 }
 
 fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
-    //TODO https://actix.rs/docs/errors/
-    let path_params = actix_web::Path::<PathParams>::extract(req).expect("Wrong path params");
-    let query_params = actix_web::Query::<QueryParams>::extract(req).expect("Wrong query params");
-    let repo_key = path_params.repo.clone();
-    let filename = query_params.file.clone();
-    let reference = format!(
-        "refs/{}",
-        query_params
-            .reference
-            .as_ref()
-            .map(String::as_str)
-            .unwrap_or(DEFAULT_REFERENCE)
-    );
-    let gr: &Addr<GitRepos> = &req.state().git_repos;
-    //TODO return proper content type depending on the content of the blob
-    gr.send(CatFile {
-        repo_key,
-        filename,
-        reference,
+    actix_web::Path::<PathParams>::extract(req).and_then(|path_params| {
+        actix_web::Query::<QueryParams>::extract(req).and_then(|query_params| {
+            let repo_key = path_params.repo.clone();
+            let filename = query_params.file.clone();
+            let reference = format!(
+                "refs/{}",
+                query_params
+                    .reference
+                    .as_ref()
+                    .unwrap_or(&DEFAULT_REFERENCE.to_string())
+            );
+            let gr: &Addr<GitRepos> = &req.state().git_repos;
+            // TODO return proper content type depending on the content of the blob
+            gr.send(CatFile {
+                repo_key,
+                filename,
+                reference,
+            })
+            .map(|x| {
+                x.0.map(Binary::from)
+                    .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+            })
+            // TODO don't wait and return the future itself
+            .wait()?
+        })
     })
-    .map(|x| {
-        x.0.map(Binary::from)
-            .map_err(|e| actix_web::error::InternalError::new(e, http::StatusCode::NOT_FOUND))
-    })
-    //TODO don't wait and return the future itself
-    .wait()
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
