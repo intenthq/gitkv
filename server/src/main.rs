@@ -121,3 +121,105 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
                 .help("path where the different repositories are located"),
         )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use actix_web::test::TestServer;
+
+    #[test]
+    #[should_panic]
+    fn run_server_with_invalid_host() {
+        run_server("", DEFAULT_PORT, Path::new(DEFAULT_REPO_ROOT));
+    }
+
+    #[test]
+    #[should_panic]
+    fn run_server_with_invalid_port() {
+        run_server(DEFAULT_HOST, "", Path::new(DEFAULT_REPO_ROOT));
+    }
+
+    #[test]
+    #[should_panic]
+    fn run_server_with_invalid_repo() {
+        run_server(DEFAULT_HOST, DEFAULT_PORT, Path::new(""));
+    }
+
+    fn test_server() -> TestServer {
+        TestServer::build_with_state(|| {
+            let addr = GitRepos::new(git::load_repos(Path::new("../../"))).start();
+            AppState {
+                git_repos: addr.clone(),
+            }
+        })
+        .start(|app| {
+            app.resource("/repo/{repo}", |r| r.h(&super::get_repo));
+        })
+    }
+
+    #[test]
+    fn get_repo_with_file_in_root_folder() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/{}?file={}&reference={}", "", "README.md", "heads/master");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(!response.status().is_success());
+    }
+
+    #[test]
+    fn get_repo_with_invalid_file() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/{}?file={}&reference={}", "server/src", "main.rs", "heads/master");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(!response.status().is_success());
+    }
+
+    #[test]
+    fn get_repo_with_file_in_subfolder() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/{}?file={}&reference={}", "", "not-a-file", "heads/master");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(!response.status().is_success());
+    }
+
+    #[test]
+    fn get_repo_with_missing_refference_parameter() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/{}?file={}", "server/src/", "main.rs");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert!(!response.status().is_success());
+    }
+
+    #[test]
+    fn get_repo_with_missing_path_parameter() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/?file={}&reference={}", "README.md", "heads/master");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+        let response = srv.execute(request.send()).unwrap();
+
+        assert_eq!(response.status().as_u16(), 404);
+    }
+
+    #[test]
+    fn get_repo_with_missing_filename_parameter() {
+        let mut srv = test_server();
+
+        let query = format!("/repo/{}?reference={}", ".", "heads/master");
+        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+
+        let response = srv.execute(request.send()).unwrap();
+        assert_eq!(response.status().as_u16(), 404);
+    }
+}
