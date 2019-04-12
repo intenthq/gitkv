@@ -1,4 +1,3 @@
-sudo: required
 language: rust
 dist: xenial
 cache:
@@ -14,6 +13,7 @@ addons:
     packages:
       # For building MUSL static builds on Linux.
       - musl-tools
+      # packages for kcov
       - cmake
       - libcurl4-openssl-dev
       - libelf-dev
