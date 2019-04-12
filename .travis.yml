@@ -1,13 +1,11 @@
 language: rust
 dist: xenial
+osx_image: xcode10.2
+
 cache:
   - cargo
   - directories:
       - "${HOME}/kcov/"
-
-os:
-  - linux
-
 addons:
   apt:
     packages:
@@ -21,6 +19,9 @@ addons:
       - binutils-dev
     sources:
       - kalakris-cmake
+  homebrew:
+    packages:
+      - cmake
 
 matrix:
   fast_finish: true
@@ -36,15 +37,15 @@ matrix:
     - os: linux
       rust: stable
       env: TARGET=x86_64-unknown-linux-musl
-    # - os: osx
-    #   rust: nightly
-    #   env: TARGET=x86_64-apple-darwin
-    # - os: osx
-    #   rust: beta
-    #   env: TARGET=x86_64-apple-darwin
-    # - os: osx
-    #   rust: stable
-    #   env: TARGET=x86_64-apple-darwin
+    - os: osx
+      rust: nightly
+      env: TARGET=x86_64-apple-darwin
+    - os: osx
+      rust: beta
+      env: TARGET=x86_64-apple-darwin
+    - os: osx
+      rust: stable
+      env: TARGET=x86_64-apple-darwin
 
 before_script:
   - rustup target add $TARGET
@@ -65,9 +66,8 @@ script:
   - cp target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET && chmod +x target/$TARGET/release/gitkv-$TARGET
 
 after_success:
-  # Generates repo test coverage and pushes it codecov
-  - cargo coverage --target $TARGET --kcov-build-location "${HOME}/kcov/"
-  - bash <(curl -s https://codecov.io/bash)
+  - test $TRAVIS_OS_NAME = "linux" && cargo coverage --target $TARGET --kcov-build-location "${HOME}/kcov/"
+  - test $TRAVIS_OS_NAME = "linux" && bash <(curl -s https://codecov.io/bash)
 
 deploy:
   # Push binaries to the GitHub release for this version.
