@@ -161,7 +161,7 @@ mod tests {
     fn get_repo_with_file_in_root_folder() {
         let mut srv = test_server();
 
-        let query = format!("/repo/{}?file={}&reference={}", "", "README.md", "heads/master");
+        let query = "/repo/?file=README.md&reference=heads/master";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
 
         let response = srv.execute(request.send()).unwrap();
@@ -172,7 +172,7 @@ mod tests {
     fn get_repo_with_invalid_file() {
         let mut srv = test_server();
 
-        let query = format!("/repo/{}?file={}&reference={}", "server/src", "main.rs", "heads/master");
+        let query = "/repo/server/src?file=not-a-file&reference=heads/master";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
 
         let response = srv.execute(request.send()).unwrap();
@@ -183,7 +183,7 @@ mod tests {
     fn get_repo_with_file_in_subfolder() {
         let mut srv = test_server();
 
-        let query = format!("/repo/{}?file={}&reference={}", "", "not-a-file", "heads/master");
+        let query = "/repo/server/src?file=main.rs&reference=heads/master";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
 
         let response = srv.execute(request.send()).unwrap();
@@ -194,7 +194,7 @@ mod tests {
     fn get_repo_with_missing_refference_parameter() {
         let mut srv = test_server();
 
-        let query = format!("/repo/{}?file={}", "server/src/", "main.rs");
+        let query = "/repo/server/src?file=main.rs";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
 
         let response = srv.execute(request.send()).unwrap();
@@ -205,7 +205,7 @@ mod tests {
     fn get_repo_with_missing_path_parameter() {
         let mut srv = test_server();
 
-        let query = format!("/repo/?file={}&reference={}", "README.md", "heads/master");
+        let query = "/repo?file=main.rs&reference=heads/master";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
         let response = srv.execute(request.send()).unwrap();
 
@@ -216,7 +216,7 @@ mod tests {
     fn get_repo_with_missing_filename_parameter() {
         let mut srv = test_server();
 
-        let query = format!("/repo/{}?reference={}", ".", "heads/master");
+        let query = "/repo/?reference=heads/master";
         let request = srv.client(http::Method::GET, &query).finish().unwrap();
 
         let response = srv.execute(request.send()).unwrap();
