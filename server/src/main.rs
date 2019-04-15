@@ -3,9 +3,15 @@ extern crate clap;
 #[macro_use]
 extern crate serde_derive;
 extern crate actix_web;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+
+use log::Level;
 
 use actix_web::actix::{Actor, Addr, System};
 use actix_web::{http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
+use env_logger::Env;
 use futures::future::Future;
 use handlers::{CatFile, GitRepos};
 use std::path::Path;
@@ -16,6 +22,8 @@ const DEFAULT_REPO_ROOT: &str = "./";
 const DEFAULT_REFERENCE: &str = "heads/master";
 
 fn main() {
+    env_logger::from_env(Env::default().default_filter_or("gitkv=info")).init();
+
     let args = parse_args().get_matches();
 
     let host = args.value_of("host").unwrap_or(DEFAULT_HOST);
@@ -43,9 +51,21 @@ pub struct AppState {
 fn run_server(host: &str, port: &str, repo_root: &Path) {
     let _sys = System::new("gitkv-server");
 
-    let addr = GitRepos::new(git::load_repos(&repo_root)).start();
+    let repos = git::load_repos(&repo_root);
 
+    if log_enabled!(Level::Info) {
+        let keys = repos
+            .keys()
+            .map(|key| (*key).clone())
+            .collect::<Vec<String>>();
+
+        info!("Loaded Git repos: [{}]", keys.join(", "))
+    }
+
+    let addr = GitRepos::new(repos).start();
     let listen_address = format!("{}:{}", host, port);
+
+    info!("Listening on {}", listen_address);
 
     server::new(move || {
         App::with_state(AppState {

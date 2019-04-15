@@ -44,6 +44,12 @@ OPTIONS:
     -p, --port <PORT>    port to listen to [default: 7791]
 ```
 
+You can modify the amount of logging with the `RUST_LOG` parameter:
+
+For basic application info (default): `RUST_LOG=gitkv=info ./gitkv`  
+Including incoming HTTP requests: `RUST_LOG=info ./gitkv`  
+For more information check [env_logger](https://docs.rs/env_logger/*/env_logger/index.html)'s documentation.
+
 ## Security
 
 Note that git stores all the content plain so that it's not a good place to store secrets and sensitive information.
