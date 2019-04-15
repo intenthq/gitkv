@@ -14,6 +14,8 @@ clap = "^2.32.0"
 futures = "^0.1.26"
 serde = "^1.0.89"
 serde_derive = "^1.0.89"
+log = "^0.4.6"
+env_logger = "^0.6.1"
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
 # feature flag of openssl-sys which compiles libopenssl statically for us.
