@@ -18,7 +18,14 @@ docker run intenthq/gitkv
 
 ### Source
 
-To run Gitkv from source first [install Rust](https://www.rust-lang.org/tools/install) then use `cargo run`
+To run Gitkv from source first [install Rust](https://www.rust-lang.org/tools/install).
+
+This is a standard Cargo project — [here is a link to the Rust documentation on how to use Cargo](https://doc.rust-lang.org/cargo/), but some common tasks you may wish to use are as follows:
+
+* `cargo build` — build the Gitkv binary, but in debug mode (unoptimised).
+* `cargo build --release` — same as the above, but in release mode (optimised).
+* `cargo run` — build and run the binary in one step.
+* `cargo test` — run the tests.
 
 ## Usage
 
