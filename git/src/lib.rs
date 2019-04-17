@@ -139,7 +139,7 @@ mod tests {
                     .add_path(Path::new(file))
                     .expect("can't add file to index");
 
-                let time = Time::new(123456789, 0);
+                let time = Time::new(123_456_789, 0);
                 let sig = Signature::new("Foo McBarson", "foo.mcbarson@iamarealboy.net", &time)
                     .expect("couldn't create signature for commit");
 
