@@ -80,7 +80,8 @@ fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
                 query_params
                     .reference
                     .as_ref()
-                    .unwrap_or(&DEFAULT_REFERENCE.to_string())
+                    .map(String::as_str)
+                    .unwrap_or(&DEFAULT_REFERENCE)
             );
             let gr: &Addr<GitRepos> = &req.state().git_repos;
             // TODO return proper content type depending on the content of the blob
