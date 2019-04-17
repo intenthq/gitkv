@@ -7,8 +7,6 @@ extern crate actix_web;
 extern crate log;
 extern crate env_logger;
 
-use log::Level;
-
 use actix_web::actix::{Actor, Addr, System};
 use actix_web::{http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
 use env_logger::Env;
@@ -53,14 +51,7 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
 
     let repos = git::load_repos(&repo_root);
 
-    if log_enabled!(Level::Info) {
-        let keys = repos
-            .keys()
-            .map(|key| (*key).clone())
-            .collect::<Vec<String>>();
-
-        info!("Loaded Git repos: [{}]", keys.join(", "))
-    }
+    info!("Loaded Git repos: {:?}", repos.keys());
 
     let addr = GitRepos::new(repos).start();
     let listen_address = format!("{}:{}", host, port);
