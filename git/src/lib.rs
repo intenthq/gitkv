@@ -62,7 +62,7 @@ mod tests {
 
     use super::{GitOps, LibGitOps};
 
-    use git2::Repository;
+    use git2::{Repository, Signature, Time};
     use std::fs;
     use std::io::Write;
     use std::path::Path;
@@ -138,16 +138,18 @@ mod tests {
                 index
                     .add_path(Path::new(file))
                     .expect("can't add file to index");
-                repo.signature().and_then(|sig| {
-                    index
-                        .write_tree()
-                        .and_then(|tid| repo.find_tree(tid))
-                        .and_then(|tree| {
-                            repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
-                        })
-                })
-            })
-            .expect("can't do first commit");
+
+                let time = Time::new(123456789, 0);
+                let sig = Signature::new("Foo McBarson", "foo.mcbarson@iamarealboy.net", &time)
+                    .expect("couldn't create signature for commit");
+
+                index
+                    .write_tree()
+                    .and_then(|tid| repo.find_tree(tid))
+                    .and_then(|tree| {
+                        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+                    })
+            }).expect("can't do first commit");;
 
         callback(&repo);
         dir.close().expect("couldn't close the dir");
