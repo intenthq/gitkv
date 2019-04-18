@@ -83,9 +83,10 @@ deploy:
   # Push Docker container to Docker Hub tagger for this version.
   - provider: script
     skip_cleanup: true
-    script: ./docker/build.sh $TRAVIS_BRANCH $TARGET && docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" && docker push intenthq/gitkv:$TRAVIS_BRANCH
+    script:
+      - ./docker/build.sh $TRAVIS_BRANCH $TARGET && docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" && docker push intenthq/gitkv:$TRAVIS_BRANCH
     on:
+      condition: $TRAVIS_OS_NAME = "linux"
       rust: stable
-      os: linux
       tags: true
       branch: /^v\d+\.\d+\.\d+.*$/
