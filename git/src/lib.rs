@@ -23,8 +23,8 @@ impl GitOps for LibGitOps {
         reference: &str,
         filename: &str,
     ) -> Result<Vec<u8>, Error> {
-        let reference = repo.find_reference(reference)?;
-        let tree = reference.peel_to_tree()?;
+        let git_ref = repo.revparse_single(reference)?;
+        let tree = git_ref.peel_to_tree()?;
         let path = std::path::Path::new(filename);
         let te = tree.get_path(path)?;
 
@@ -66,6 +66,7 @@ mod tests {
     use std::fs;
     use std::io::Write;
     use std::path::Path;
+    use std::str;
 
     fn git_cat_file(
         repo_path: &Repository,
@@ -81,10 +82,34 @@ mod tests {
     }
 
     #[test]
-    fn test_cat_file_with_existing_ref_and_file() {
-        with_repo("file content", "dir/existing.file", |repo| {
+    fn test_cat_file_with_valid_branch_ref_and_file() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
             let res =
-                git_cat_file(repo, "refs/heads/master", "dir/existing.file").expect("should be ok");
+                git_cat_file(repo, "master", "dir/existing.file").expect("should be ok");
+            assert_eq!(
+                std::str::from_utf8(&res).expect("valid utf8"),
+                "file content"
+            );
+        })
+    }
+
+    #[test]
+    fn test_cat_file_with_valid_sha_ref_and_file() {
+        with_repo("file content", "dir/existing.file", |repo, commit_sha| {
+            let res =
+                git_cat_file(repo, commit_sha, "dir/existing.file").expect("should be ok");
+            assert_eq!(
+                std::str::from_utf8(&res).expect("valid utf8"),
+                "file content"
+            );
+        })
+    }
+
+    #[test]
+    fn test_cat_file_with_valid_tag_ref_and_file() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res =
+                git_cat_file(repo, "this-is-a-tag", "dir/existing.file").expect("should be ok");
             assert_eq!(
                 std::str::from_utf8(&res).expect("valid utf8"),
                 "file content"
@@ -94,8 +119,8 @@ mod tests {
 
     #[test]
     fn test_cat_file_with_non_existing_ref() {
-        with_repo("file content", "dir/existing.file", |repo| {
-            let res = git_cat_file_err(repo, "refs/heads/non-existing", "dir/existing.file");
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_cat_file_err(repo, "idonot/exist", "dir/existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Reference);
         })
@@ -103,8 +128,8 @@ mod tests {
 
     #[test]
     fn test_cat_file_with_non_existing_file() {
-        with_repo("file content", "dir/existing.file", |repo| {
-            let res = git_cat_file_err(repo, "refs/heads/master", "non-existing.file");
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_cat_file_err(repo, "master", "non-existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Tree);
         })
@@ -112,8 +137,8 @@ mod tests {
 
     #[test]
     fn test_cat_file_with_dir() {
-        with_repo("content", "dir/existing.file", |repo| {
-            let res = git_cat_file_err(repo, "refs/heads/master", "dir");
+        with_repo("content", "dir/existing.file", |repo, _| {
+            let res = git_cat_file_err(repo, "master", "dir");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Invalid);
         })
@@ -121,7 +146,7 @@ mod tests {
 
     pub fn with_repo<F>(file_contents: &str, file: &str, callback: F)
     where
-        F: Fn(&Repository),
+        F: Fn(&Repository, &str),
     {
         let dir = tempdir::TempDir::new("testgitrepo").expect("can't create tmp dir");
 
@@ -133,15 +158,15 @@ mod tests {
             .and_then(|mut file| file.write_all(file_contents.as_bytes()))
             .expect("can't write file contents");
 
-        repo.index()
+        let time = Time::new(123_456_789, 0);
+        let sig = Signature::new("Foo McBarson", "foo.mcbarson@iamarealboy.net", &time)
+            .expect("couldn't create signature for commit");
+
+        let commit_oid = repo.index()
             .and_then(|mut index| {
                 index
                     .add_path(Path::new(file))
                     .expect("can't add file to index");
-
-                let time = Time::new(123_456_789, 0);
-                let sig = Signature::new("Foo McBarson", "foo.mcbarson@iamarealboy.net", &time)
-                    .expect("couldn't create signature for commit");
 
                 index
                     .write_tree()
@@ -149,9 +174,16 @@ mod tests {
                     .and_then(|tree| {
                         repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
                     })
-            }).expect("can't do first commit");;
+            }).expect("can't do first commit");
 
-        callback(&repo);
+        let commit = repo.find_object(commit_oid, None)
+            .expect("Could not find first commit.");
+        repo.tag("this-is-a-tag", &commit, &sig, "This is a tag.", false)
+            .expect("Could not create tag.");
+
+        let commit_sha = format!("{}", commit_oid);
+
+        callback(&repo, &commit_sha);
         dir.close().expect("couldn't close the dir");
     }
 
