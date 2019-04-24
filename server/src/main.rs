@@ -8,8 +8,9 @@ extern crate log;
 extern crate env_logger;
 
 use actix_web::actix::{Actor, Addr, System};
-use actix_web::{error, http, middleware, server, App, Binary, FromRequest, HttpRequest, Responder};
+use actix_web::{error, http, middleware, server, App, AsyncResponder, Binary, FromRequest, HttpRequest, Responder};
 use env_logger::Env;
+use futures::future;
 use futures::future::Future;
 use handlers::{CatFile, GitRepos};
 use std::path::Path;
@@ -17,7 +18,7 @@ use std::path::Path;
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
 const DEFAULT_REPO_ROOT: &str = "./";
-const DEFAULT_REFERENCE: &str = "heads/master";
+const DEFAULT_REFERENCE: &str = "origin/master";
 
 fn main() {
     env_logger::from_env(Env::default().default_filter_or("gitkv=info")).init();
@@ -70,34 +71,39 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
     .run();
 }
 
+fn extract_params(req: &HttpRequest<AppState>) -> Result<(actix_web::Path<PathParams>, actix_web::Query<QueryParams>), error::Error> {
+    let path_params: actix_web::Path<PathParams> = actix_web::Path::<PathParams>::extract(req)?;
+    let query_params: actix_web::Query<QueryParams> = actix_web::Query::<QueryParams>::extract(req)?;
+
+    Ok((path_params, query_params))
+}
+
 fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
-    actix_web::Path::<PathParams>::extract(req).and_then(|path_params| {
-        actix_web::Query::<QueryParams>::extract(req).and_then(|query_params| {
-            let repo_key = path_params.repo.clone();
-            let filename = query_params.file.clone();
-            let reference = format!(
-                "refs/{}",
-                query_params
-                    .reference
-                    .as_ref()
-                    .map(String::as_str)
-                    .unwrap_or(&DEFAULT_REFERENCE)
-            );
-            let gr: &Addr<GitRepos> = &req.state().git_repos;
-            // TODO return proper content type depending on the content of the blob
-            gr.send(CatFile {
-                repo_key,
-                filename,
-                reference,
-            })
-            .map(|x| {
-                x.0.map(Binary::from)
-                    .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-            })
-            // TODO don't wait and return the future itself
-            .wait()?
+    let addr: Addr<GitRepos> = req.state().git_repos.clone();
+    let params_fut = future::result(extract_params(req));
+
+    params_fut.and_then(move |(path_params, query_params)| {
+        let repo_key = path_params.repo.clone();
+        let filename = query_params.file.clone();
+        let reference = query_params
+            .reference
+            .as_ref()
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_REFERENCE)
+            .to_string();
+        ;
+        // TODO return proper content type depending on the content of the blob
+        addr.send(CatFile {
+            repo_key,
+            filename,
+            reference,
         })
-    })
+        .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+        .and_then(|x| {
+            x.0.map(Binary::from)
+                .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+        })
+    }).responder()
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
@@ -138,6 +144,8 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
 mod tests {
     use super::*;
     use actix_web::test::TestServer;
+    use actix_web::{http, HttpMessage};
+    use std::str;
 
     #[test]
     #[should_panic]
@@ -157,7 +165,7 @@ mod tests {
         run_server(DEFAULT_HOST, DEFAULT_PORT, Path::new(""));
     }
 
-    fn test_server() -> TestServer {
+    fn start_test_server() -> TestServer {
         TestServer::build_with_state(|| {
             let addr = GitRepos::new(git::load_repos(Path::new("../../"))).start();
             AppState {
@@ -169,69 +177,93 @@ mod tests {
         })
     }
 
+    macro_rules! assert_test_server_responds_with {
+        ($path:expr, $expected_status:expr, $expected_body:expr) => {
+            {
+                let mut srv = start_test_server();
+
+                let request = srv.client(http::Method::GET, &$path).finish().unwrap();
+                let response = srv.execute(request.send()).unwrap();
+                let bytes = srv.execute(response.body()).unwrap();
+                let body = str::from_utf8(&bytes).unwrap();
+
+                assert_eq!(response.status(), $expected_status);
+                assert_eq!(body, $expected_body);
+            }
+        };
+    }
+
     #[test]
-    fn get_repo_with_file_in_root_folder() {
-        let mut srv = test_server();
+    fn get_repo_with_missing_name() {
+        assert_test_server_responds_with!(
+            "/repo/idontexist?file=README.md&reference=origin/master",
+            404,
+            ""
+        )
+    }
 
-        let query = "/repo/?file=README.md&reference=heads/master";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
-
-        let response = srv.execute(request.send()).unwrap();
-        assert!(!response.status().is_success());
+    #[test]
+    fn get_repo_with_empty_name() {
+        assert_test_server_responds_with!(
+            "/repo/?file=README.md&reference=origin/master",
+            404,
+            ""
+        )
     }
 
     #[test]
     fn get_repo_with_invalid_file() {
-        let mut srv = test_server();
-
-        let query = "/repo/server/src?file=not-a-file&reference=heads/master";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
-
-        let response = srv.execute(request.send()).unwrap();
-        assert!(!response.status().is_success());
+        assert_test_server_responds_with!(
+            "/repo/gitkv?file=not-a-file&reference=origin/master",
+            404,
+            ""
+        )
     }
 
     #[test]
-    fn get_repo_with_file_in_subfolder() {
-        let mut srv = test_server();
-
-        let query = "/repo/server/src?file=main.rs&reference=heads/master";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
-
-        let response = srv.execute(request.send()).unwrap();
-        assert!(!response.status().is_success());
-    }
-
-    #[test]
-    fn get_repo_with_missing_refference_parameter() {
-        let mut srv = test_server();
-
-        let query = "/repo/server/src?file=main.rs";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
-
-        let response = srv.execute(request.send()).unwrap();
-        assert!(!response.status().is_success());
+    fn get_repo_with_invalid_reference_parameter() {
+        assert_test_server_responds_with!(
+            "/repo/gitkv?file=server/resources/test-file&reference=idonot/exist",
+            404,
+            ""
+        )
     }
 
     #[test]
     fn get_repo_with_missing_path_parameter() {
-        let mut srv = test_server();
-
-        let query = "/repo?file=main.rs&reference=heads/master";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
-        let response = srv.execute(request.send()).unwrap();
-
-        assert_eq!(response.status().as_u16(), 404);
+        assert_test_server_responds_with!(
+            "/repo/gitkv?reference=origin/master",
+            400,
+            ""
+        )
     }
 
     #[test]
-    fn get_repo_with_missing_filename_parameter() {
-        let mut srv = test_server();
+    fn get_repo_with_valid_file() {
+        assert_test_server_responds_with!(
+            "/repo/gitkv?file=Cargo.toml",
+            200,
+            "[workspace]\n\nmembers = [\n    \"git\",\n    \"handlers\",\n    \"server\",\n]\n"
+        );
+    }
 
-        let query = "/repo/?reference=heads/master";
-        let request = srv.client(http::Method::GET, &query).finish().unwrap();
+    #[test]
+    fn get_repo_with_valid_sha_reference_parameter() {
+        assert_test_server_responds_with!(
+            // This reference is the very first commit in this repo, where the
+            // README.md was still pretty much empty.
+            "/repo/gitkv?file=README.md&reference=079b0a3afe57bdf9e428e5dbf3919adaff905ffe",
+            200,
+            "# gitkv\ngitkv is a server for using git as a key value store for text files\n"
+        );
+    }
 
-        let response = srv.execute(request.send()).unwrap();
-        assert_eq!(response.status().as_u16(), 404);
+    #[test]
+    fn get_repo_with_valid_tag_reference_parameter() {
+        assert_test_server_responds_with!(
+            "/repo/gitkv?file=Cargo.toml&reference=v0.0.1",
+            200,
+            "[workspace]\n\nmembers = [\n    \"git\",\n    \"handlers\",\n    \"server\",\n]\n"
+        );
     }
 }
