@@ -8,7 +8,10 @@ extern crate log;
 extern crate env_logger;
 
 use actix_web::actix::{Actor, Addr, System};
-use actix_web::{error, http, middleware, server, App, AsyncResponder, Binary, FromRequest, HttpRequest, Responder};
+use actix_web::{
+    error, http, middleware, server, App, AsyncResponder, Binary, FromRequest, HttpRequest,
+    Responder,
+};
 use env_logger::Env;
 use futures::future;
 use futures::future::Future;
@@ -71,9 +74,12 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
     .run();
 }
 
-fn extract_params(req: &HttpRequest<AppState>) -> Result<(actix_web::Path<PathParams>, actix_web::Query<QueryParams>), error::Error> {
+fn extract_params(
+    req: &HttpRequest<AppState>,
+) -> Result<(actix_web::Path<PathParams>, actix_web::Query<QueryParams>), error::Error> {
     let path_params: actix_web::Path<PathParams> = actix_web::Path::<PathParams>::extract(req)?;
-    let query_params: actix_web::Query<QueryParams> = actix_web::Query::<QueryParams>::extract(req)?;
+    let query_params: actix_web::Query<QueryParams> =
+        actix_web::Query::<QueryParams>::extract(req)?;
 
     Ok((path_params, query_params))
 }
@@ -82,28 +88,30 @@ fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
     let addr: Addr<GitRepos> = req.state().git_repos.clone();
     let params_fut = future::result(extract_params(req));
 
-    params_fut.and_then(move |(path_params, query_params)| {
-        let repo_key = path_params.repo.clone();
-        let filename = query_params.file.clone();
-        let reference = query_params
-            .reference
-            .as_ref()
-            .map(String::as_str)
-            .unwrap_or(DEFAULT_REFERENCE)
-            .to_string();
+    params_fut
+        .and_then(move |(path_params, query_params)| {
+            let repo_key = path_params.repo.clone();
+            let filename = query_params.file.clone();
+            let reference = query_params
+                .reference
+                .as_ref()
+                .map(String::as_str)
+                .unwrap_or(DEFAULT_REFERENCE)
+                .to_string();
         ;
-        // TODO return proper content type depending on the content of the blob
-        addr.send(CatFile {
-            repo_key,
-            filename,
-            reference,
+            // TODO return proper content type depending on the content of the blob
+            addr.send(CatFile {
+                repo_key,
+                filename,
+                reference,
+            })
+            .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+            .and_then(|x| {
+                x.0.map(Binary::from)
+                    .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+            })
         })
-        .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-        .and_then(|x| {
-            x.0.map(Binary::from)
-                .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-        })
-    }).responder()
+        .responder()
 }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
