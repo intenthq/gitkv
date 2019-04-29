@@ -1,0 +1,3 @@
+[submodule "server/test/fixtures"]
+	path = server/test/fixtures
+	url = git@github.com:intenthq/gitkv-test-fixtures.git
