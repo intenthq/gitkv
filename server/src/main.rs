@@ -167,7 +167,7 @@ mod tests {
 
     fn start_test_server() -> TestServer {
         TestServer::build_with_state(|| {
-            let addr = GitRepos::new(git::load_repos(Path::new("../../"))).start();
+            let addr = GitRepos::new(git::load_repos(Path::new("test"))).start();
             AppState {
                 git_repos: addr.clone(),
             }
@@ -178,19 +178,17 @@ mod tests {
     }
 
     macro_rules! assert_test_server_responds_with {
-        ($path:expr, $expected_status:expr, $expected_body:expr) => {
-            {
-                let mut srv = start_test_server();
+        ($path:expr, $expected_status:expr, $expected_body:expr) => {{
+            let mut srv = start_test_server();
 
-                let request = srv.client(http::Method::GET, &$path).finish().unwrap();
-                let response = srv.execute(request.send()).unwrap();
-                let bytes = srv.execute(response.body()).unwrap();
-                let body = str::from_utf8(&bytes).unwrap();
+            let request = srv.client(http::Method::GET, &$path).finish().unwrap();
+            let response = srv.execute(request.send()).unwrap();
+            let bytes = srv.execute(response.body()).unwrap();
+            let body = str::from_utf8(&bytes).unwrap();
 
-                assert_eq!(response.status(), $expected_status);
-                assert_eq!(body, $expected_body);
-            }
-        };
+            assert_eq!(response.status(), $expected_status);
+            assert_eq!(body, $expected_body);
+        }};
     }
 
     #[test]
@@ -204,17 +202,13 @@ mod tests {
 
     #[test]
     fn get_repo_with_empty_name() {
-        assert_test_server_responds_with!(
-            "/repo/?file=README.md&reference=origin/master",
-            404,
-            ""
-        )
+        assert_test_server_responds_with!("/repo/?file=README.md&reference=origin/master", 404, "")
     }
 
     #[test]
     fn get_repo_with_invalid_file() {
         assert_test_server_responds_with!(
-            "/repo/gitkv?file=not-a-file&reference=origin/master",
+            "/repo/fixtures?file=not-a-file&reference=origin/master",
             404,
             ""
         )
@@ -223,7 +217,7 @@ mod tests {
     #[test]
     fn get_repo_with_invalid_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/gitkv?file=server/resources/test-file&reference=idonot/exist",
+            "/repo/fixtures?file=example.txt&reference=idonot/exist",
             404,
             ""
         )
@@ -231,39 +225,29 @@ mod tests {
 
     #[test]
     fn get_repo_with_missing_path_parameter() {
-        assert_test_server_responds_with!(
-            "/repo/gitkv?reference=origin/master",
-            400,
-            ""
-        )
+        assert_test_server_responds_with!("/repo/fixtures?reference=origin/master", 400, "")
     }
 
     #[test]
     fn get_repo_with_valid_file() {
-        assert_test_server_responds_with!(
-            "/repo/gitkv?file=Cargo.toml",
-            200,
-            "[workspace]\n\nmembers = [\n    \"git\",\n    \"handlers\",\n    \"server\",\n]\n"
-        );
+        assert_test_server_responds_with!("/repo/fixtures?file=example.txt", 200, "Bux poi\n");
     }
 
     #[test]
     fn get_repo_with_valid_sha_reference_parameter() {
         assert_test_server_responds_with!(
-            // This reference is the very first commit in this repo, where the
-            // README.md was still pretty much empty.
-            "/repo/gitkv?file=README.md&reference=079b0a3afe57bdf9e428e5dbf3919adaff905ffe",
+            "/repo/fixtures?file=example.txt&reference=167c95c4c023c6a79c6efa15fc5adadbf04aaf81",
             200,
-            "# gitkv\ngitkv is a server for using git as a key value store for text files\n"
+            "Foo bar\n"
         );
     }
 
     #[test]
     fn get_repo_with_valid_tag_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/gitkv?file=Cargo.toml&reference=v0.0.1",
+            "/repo/fixtures?file=example.txt&reference=v0.1",
             200,
-            "[workspace]\n\nmembers = [\n    \"git\",\n    \"handlers\",\n    \"server\",\n]\n"
+            "Release 1.0 file contents\n"
         );
     }
 }
