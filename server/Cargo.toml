@@ -9,7 +9,7 @@ license = "MIT"
 [dependencies]
 git = { path = "../git" }
 handlers = { path = "../handlers" }
-actix-web = "^0.7.18"
+actix-web = "^1.0.2"
 clap = "^2.32.0"
 futures = "^0.1.26"
 serde = "^1.0.89"
