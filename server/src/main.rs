@@ -7,13 +7,9 @@ extern crate actix_web;
 extern crate log;
 extern crate env_logger;
 
-use actix_web::actix::{Actor, Addr, System};
-use actix_web::{
-    error, http, middleware, server, App, AsyncResponder, Binary, FromRequest, HttpRequest,
-    Responder,
-};
+use actix::{Actor, Addr, System};
+use actix_web::{error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
-use futures::future;
 use futures::future::Future;
 use handlers::{CatFile, GitRepos};
 use std::path::Path;
@@ -62,57 +58,43 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
 
     info!("Listening on {}", listen_address);
 
-    server::new(move || {
-        App::with_state(AppState {
+    HttpServer::new(move || {
+        App::new().data(AppState {
             git_repos: addr.clone(),
         })
-        .middleware(middleware::Logger::default())
-        .resource("/repo/{repo}", |r| r.method(http::Method::GET).f(get_repo))
+        .wrap(middleware::Logger::default())
+        .route("/repo/{repo}", web::get().to_async(get_repo))
     })
     .bind(listen_address)
     .expect("can't bind into address")
-    .run();
+    .run()
+    .expect("could not start server");
 }
 
-fn extract_params(
-    req: &HttpRequest<AppState>,
-) -> Result<(actix_web::Path<PathParams>, actix_web::Query<QueryParams>), error::Error> {
-    let path_params: actix_web::Path<PathParams> = actix_web::Path::<PathParams>::extract(req)?;
-    let query_params: actix_web::Query<QueryParams> =
-        actix_web::Query::<QueryParams>::extract(req)?;
+fn get_repo((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
+    -> impl Future<Item=web::Bytes, Error=error::Error> {
+        let addr: Addr<GitRepos> = app_state.git_repos.clone();
+        let repo_key = path_params.repo.clone();
+        let filename = query_params.file.clone();
+        let reference = query_params
+            .reference
+            .as_ref()
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_REFERENCE)
+            .to_string();
 
-    Ok((path_params, query_params))
-}
-
-fn get_repo(req: &HttpRequest<AppState>) -> impl Responder {
-    let addr: Addr<GitRepos> = req.state().git_repos.clone();
-    let params_fut = future::result(extract_params(req));
-
-    params_fut
-        .and_then(move |(path_params, query_params)| {
-            let repo_key = path_params.repo.clone();
-            let filename = query_params.file.clone();
-            let reference = query_params
-                .reference
-                .as_ref()
-                .map(String::as_str)
-                .unwrap_or(DEFAULT_REFERENCE)
-                .to_string();
-        ;
-            // TODO return proper content type depending on the content of the blob
-            addr.send(CatFile {
-                repo_key,
-                filename,
-                reference,
-            })
-            .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-            .and_then(|x| {
-                x.0.map(Binary::from)
-                    .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-            })
+        // TODO return proper content type depending on the content of the blob
+        addr.send(CatFile {
+            repo_key,
+            filename,
+            reference,
         })
-        .responder()
-}
+        .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+        .and_then(|x| {
+            x.0.map(web::Bytes::from)
+                .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+        })
+    }
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
     clap::App::new(crate_name!())
@@ -151,8 +133,8 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::test::TestServer;
-    use actix_web::{http, HttpMessage};
+    use actix_http::h1;
+    use actix_http_test::{TestServer, TestServerRuntime};
     use std::str;
 
     #[test]
@@ -173,15 +155,17 @@ mod tests {
         run_server(DEFAULT_HOST, DEFAULT_PORT, Path::new(""));
     }
 
-    fn start_test_server() -> TestServer {
-        TestServer::build_with_state(|| {
+    fn start_test_server() -> TestServerRuntime {
+        TestServer::new(|| {
             let addr = GitRepos::new(git::load_repos(Path::new("test"))).start();
-            AppState {
-                git_repos: addr.clone(),
-            }
-        })
-        .start(|app| {
-            app.resource("/repo/{repo}", |r| r.h(&super::get_repo));
+
+            h1::H1Service::new(
+                App::new().data(AppState {
+                    git_repos: addr.clone(),
+                })
+                .wrap(middleware::Logger::default())
+                .route("/repo/{repo}", web::get().to_async(get_repo))
+            )
         })
     }
 
@@ -189,9 +173,8 @@ mod tests {
         ($path:expr, $expected_status:expr, $expected_body:expr) => {{
             let mut srv = start_test_server();
 
-            let request = srv.client(http::Method::GET, &$path).finish().unwrap();
-            let response = srv.execute(request.send()).unwrap();
-            let bytes = srv.execute(response.body()).unwrap();
+            let mut response = srv.block_on(srv.get(&$path).send()).unwrap();
+            let bytes = srv.block_on(response.body()).unwrap();
             let body = str::from_utf8(&bytes).unwrap();
 
             assert_eq!(response.status(), $expected_status);
@@ -204,13 +187,17 @@ mod tests {
         assert_test_server_responds_with!(
             "/repo/idontexist?file=README.md&reference=origin/master",
             404,
-            ""
+            "No repo found with name 'idontexist'"
         )
     }
 
     #[test]
     fn get_repo_with_empty_name() {
-        assert_test_server_responds_with!("/repo/?file=README.md&reference=origin/master", 404, "")
+        assert_test_server_responds_with!(
+            "/repo/?file=README.md&reference=origin/master",
+            404,
+            ""
+        )
     }
 
     #[test]
@@ -218,7 +205,7 @@ mod tests {
         assert_test_server_responds_with!(
             "/repo/fixtures?file=not-a-file&reference=origin/master",
             404,
-            ""
+            "the path 'not-a-file' does not exist in the given tree; class=Tree (14); code=NotFound (-3)"
         )
     }
 
@@ -227,18 +214,26 @@ mod tests {
         assert_test_server_responds_with!(
             "/repo/fixtures?file=example.txt&reference=idonot/exist",
             404,
-            ""
+            "revspec 'idonot/exist' not found; class=Reference (4); code=NotFound (-3)"
         )
     }
 
     #[test]
     fn get_repo_with_missing_path_parameter() {
-        assert_test_server_responds_with!("/repo/fixtures?reference=origin/master", 400, "")
+        assert_test_server_responds_with!(
+            "/repo/fixtures?reference=origin/master",
+            400,
+            "Query deserialize error: missing field `file`"
+        )
     }
 
     #[test]
     fn get_repo_with_valid_file() {
-        assert_test_server_responds_with!("/repo/fixtures?file=example.txt", 200, "Bux poi\n");
+        assert_test_server_responds_with!(
+            "/repo/fixtures?file=example.txt",
+            200,
+            "Bux poi\n"
+        );
     }
 
     #[test]
