@@ -9,13 +9,18 @@ license = "MIT"
 [dependencies]
 git = { path = "../git" }
 handlers = { path = "../handlers" }
-actix-web = "^1.0.0"
+actix = "^0.8.3"
+actix-web = "^1.0.2"
 clap = "^2.32.0"
 futures = "^0.1.26"
 serde = "^1.0.89"
 serde_derive = "^1.0.89"
 log = "^0.4.6"
 env_logger = "^0.6.1"
+
+[dev-dependencies]
+actix-http = "^0.2.3"
+actix-http-test = "^0.2.2"
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
 # feature flag of openssl-sys which compiles libopenssl statically for us.
