@@ -6,13 +6,17 @@ extern crate actix_web;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate job_scheduler;
 
+use job_scheduler::{JobScheduler, Job};
 use actix::{Actor, Addr, System};
 use actix_web::{error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
 use futures::future::Future;
 use handlers::{CatFile, GitRepos};
 use std::path::Path;
+use std::time::Duration;
+use std::thread;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
@@ -28,7 +32,12 @@ fn main() {
     let port = args.value_of("port").unwrap_or(DEFAULT_PORT);
     let repo_root = Path::new(args.value_of("repo-root").unwrap_or(DEFAULT_REPO_ROOT));
 
+    thread::spawn(move || {
+        refresh()
+    });
+
     run_server(host, port, repo_root);
+
 }
 
 #[derive(Deserialize)]
@@ -46,7 +55,22 @@ pub struct AppState {
     pub git_repos: Addr<GitRepos>,
 }
 
-fn run_server(host: &str, port: &str, repo_root: &Path) {
+fn refresh() {
+    let mut sched = JobScheduler::new();
+
+    sched.add(Job::new("1/10 * * * * *".parse().unwrap(), || {
+
+    }));
+
+    loop {
+        sched.tick();
+
+        std::thread::sleep(Duration::from_millis(500));
+    }
+
+}
+
+fn run_server(host: &str, port: &str, repo_root: &Path){
     let _sys = System::new("gitkv-server");
 
     let repos = git::load_repos(&repo_root);
