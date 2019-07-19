@@ -39,7 +39,7 @@ where
 
 pub struct GitRepos {
     repos: HashMap<String, Repository>,
-    ops: Box<GitOps>,
+    ops: Box<dyn GitOps>,
 }
 
 impl Actor for GitRepos {
