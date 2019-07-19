@@ -11,8 +11,9 @@ use actix::{Actor, Addr, System};
 use actix_web::{error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
 use futures::future::Future;
-use handlers::{CatFile, GitRepos};
+use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse};
 use std::path::Path;
+use serde_json;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
@@ -34,12 +35,12 @@ fn main() {
 #[derive(Deserialize)]
 pub struct PathParams {
     pub repo: String,
+    pub path: String
 }
 
 #[derive(Deserialize)]
 pub struct QueryParams {
     pub reference: Option<String>,
-    pub file: String,
 }
 
 pub struct AppState {
@@ -63,7 +64,8 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
             git_repos: addr.clone(),
         })
         .wrap(middleware::Logger::default())
-        .route("/repo/{repo}", web::get().to_async(get_repo))
+        .route("/repos/{repo}/cat/{path:.+}", web::get().to_async(cat_file))
+        .route("/repos/{repo}/ls/{path:.+}", web::get().to_async(ls_dir))
     })
     .bind(listen_address)
     .expect("can't bind into address")
@@ -71,11 +73,18 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
     .expect("could not start server");
 }
 
-fn get_repo((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
+
+macro_rules! not_found {
+    () => {
+        |err| error::InternalError::new(err, http::StatusCode::NOT_FOUND).into()
+    };
+}
+
+fn cat_file((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
     -> impl Future<Item=web::Bytes, Error=error::Error> {
         let addr: Addr<GitRepos> = app_state.git_repos.clone();
         let repo_key = path_params.repo.clone();
-        let filename = query_params.file.clone();
+        let path = path_params.path.clone();
         let reference = query_params
             .reference
             .as_ref()
@@ -86,13 +95,35 @@ fn get_repo((app_state, path_params, query_params): (web::Data<AppState>, web::P
         // TODO return proper content type depending on the content of the blob
         addr.send(CatFile {
             repo_key,
-            filename,
+            path,
             reference,
         })
-        .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
-        .and_then(|x| {
-            x.0.map(web::Bytes::from)
-                .map_err(|e| error::InternalError::new(e, http::StatusCode::NOT_FOUND).into())
+        .map_err(not_found!())
+        .and_then(|CatFileResponse(resp)| resp.map(web::Bytes::from).map_err(not_found!()))
+    }
+
+fn ls_dir((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
+    -> impl Future<Item=String, Error=error::Error> {
+        let addr: Addr<GitRepos> = app_state.git_repos.clone();
+        let repo_key = path_params.repo.clone();
+        let path = path_params.path.clone();
+        let reference = query_params
+            .reference
+            .as_ref()
+            .map(String::as_str)
+            .unwrap_or(DEFAULT_REFERENCE)
+            .to_string();
+
+        addr.send(LsDir {
+            repo_key,
+            path,
+            reference,
+        })
+        .map_err(not_found!())
+        .and_then(|LsDirResponse(resp)| {
+            resp.map_err(not_found!()).and_then(|children| {
+                serde_json::to_string(&children).map_err(not_found!())
+            })
         })
     }
 
@@ -164,7 +195,8 @@ mod tests {
                     git_repos: addr.clone(),
                 })
                 .wrap(middleware::Logger::default())
-                .route("/repo/{repo}", web::get().to_async(get_repo))
+                .route("/repos/{repo}/cat/{path:.+}", web::get().to_async(cat_file))
+                .route("/repos/{repo}/ls/{path:.+}", web::get().to_async(ls_dir))
             )
         })
     }
@@ -182,75 +214,153 @@ mod tests {
         }};
     }
 
-    #[test]
-    fn get_repo_with_missing_name() {
-        assert_test_server_responds_with!(
-            "/repo/idontexist?file=README.md&reference=origin/master",
-            404,
-            "No repo found with name 'idontexist'"
-        )
-    }
+    // cat tests
 
     #[test]
-    fn get_repo_with_empty_name() {
+    fn cat_file_with_empty_repo() {
         assert_test_server_responds_with!(
-            "/repo/?file=README.md&reference=origin/master",
+            "/repos//cat/README.md?reference=origin/master",
             404,
             ""
         )
     }
 
     #[test]
-    fn get_repo_with_invalid_file() {
+    fn cat_file_with_empty_path() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?file=not-a-file&reference=origin/master",
+            "/repos/fixtures/cat/?reference=origin/master",
+            404,
+            ""
+        )
+    }
+
+    #[test]
+    fn cat_file_with_invalid_repo() {
+        assert_test_server_responds_with!(
+            "/repos/idontexist/cat/README.md?reference=origin/master",
+            404,
+            "No repo found with name 'idontexist'"
+        )
+    }
+
+    #[test]
+    fn cat_file_with_invalid_path() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/cat/not-a-file?reference=origin/master",
             404,
             "the path 'not-a-file' does not exist in the given tree; class=Tree (14); code=NotFound (-3)"
         )
     }
 
     #[test]
-    fn get_repo_with_invalid_reference_parameter() {
+    fn cat_file_with_invalid_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?file=example.txt&reference=idonot/exist",
+            "/repos/fixtures/cat/example.txt?reference=idonot/exist",
             404,
             "revspec 'idonot/exist' not found; class=Reference (4); code=NotFound (-3)"
         )
     }
 
     #[test]
-    fn get_repo_with_missing_path_parameter() {
+    fn cat_file_with_valid_file() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?reference=origin/master",
-            400,
-            "Query deserialize error: missing field `file`"
-        )
+            "/repos/fixtures/cat/example.txt",
+            200,
+            "Bux poi — updated!\n"
+        );
     }
 
     #[test]
-    fn get_repo_with_valid_file() {
+    fn cat_file_with_valid_sha_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?file=example.txt",
+            "/repos/fixtures/cat/example.txt?reference=467e981f94686d7a1db395f8acfd3cf7e7adfcd3",
             200,
             "Bux poi\n"
         );
     }
 
     #[test]
-    fn get_repo_with_valid_sha_reference_parameter() {
+    fn cat_file_with_valid_tag_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?file=example.txt&reference=167c95c4c023c6a79c6efa15fc5adadbf04aaf81",
+            "/repos/fixtures/cat/example.txt?reference=v0.1.0",
             200,
-            "Foo bar\n"
+            "Bux poi\n"
+        );
+    }
+
+    // ls tests
+
+    #[test]
+    fn ls_dir_with_empty_repo() {
+        assert_test_server_responds_with!(
+            "/repos//ls/a-dir?reference=origin/master",
+            404,
+            ""
+        )
+    }
+
+    #[test]
+    fn ls_dir_with_empty_path() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/ls/?reference=origin/master",
+            404,
+            ""
+        )
+    }
+
+    #[test]
+    fn ls_dir_with_invalid_repo() {
+        assert_test_server_responds_with!(
+            "/repos/idontexist/ls/a-dir?reference=origin/master",
+            404,
+            "No repo found with name 'idontexist'"
+        )
+    }
+
+    #[test]
+    fn ls_dir_with_invalid_path() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/ls/not-a-dir?reference=origin/master",
+            404,
+            "the path 'not-a-dir' does not exist in the given tree; class=Tree (14); code=NotFound (-3)"
+        )
+    }
+
+    #[test]
+    fn ls_dir_with_invalid_reference_parameter() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/ls/example.txt?reference=idonot/exist",
+            404,
+            "revspec 'idonot/exist' not found; class=Reference (4); code=NotFound (-3)"
+        )
+    }
+
+    #[test]
+    fn ls_dir_with_valid_dir() {
+        // Note that we do not expect recursive results — so `a-dir/nested-dir`
+        // and its children are expected to be absent!
+        assert_test_server_responds_with!(
+            "/repos/fixtures/ls/a-dir",
+            200,
+            "[\"file-a\",\"file-b\",\"file-c\",\"file-d\",\"nested-dir\"]"
         );
     }
 
     #[test]
-    fn get_repo_with_valid_tag_reference_parameter() {
+    fn ls_dir_with_valid_sha_reference_parameter() {
         assert_test_server_responds_with!(
-            "/repo/fixtures?file=example.txt&reference=v0.1",
+            "/repos/fixtures/ls/a-dir?reference=467e981f94686d7a1db395f8acfd3cf7e7adfcd3",
             200,
-            "Release 1.0 file contents\n"
+            "[\"file-a\",\"file-b\",\"file-c\",\"nested-dir\"]"
+        );
+    }
+
+    #[test]
+    fn ls_dir_with_valid_tag_reference_parameter() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/ls/a-dir?reference=v0.1.0",
+            200,
+            "[\"file-a\",\"file-b\",\"file-c\",\"nested-dir\"]"
         );
     }
 }

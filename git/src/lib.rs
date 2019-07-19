@@ -10,6 +10,13 @@ pub trait GitOps {
         reference: &str,
         filename: &str,
     ) -> Result<Vec<u8>, Error>;
+
+    fn ls_dir(
+        &self,
+        repo: &Repository,
+        reference: &str,
+        directory: &str,
+    ) -> Result<Vec<String>, Error>;
 }
 
 pub struct LibGitOps;
@@ -29,6 +36,24 @@ impl GitOps for LibGitOps {
         let te = tree.get_path(path)?;
 
         repo.find_blob(te.id()).map(|x| x.content().to_owned())
+    }
+
+    fn ls_dir(
+        &self,
+        repo: &Repository,
+        reference: &str,
+        directory: &str,
+    ) -> Result<Vec<String>, Error> {
+        let git_ref = repo.revparse_single(reference)?;
+        let tree = git_ref.peel_to_tree()?;
+        let path = std::path::Path::new(directory);
+        let te = tree.get_path(path)?;
+
+        repo.find_tree(te.id()).map({ |tree|
+            tree.iter().flat_map({ |tree_entry|
+                tree_entry.name().map(|name| name.to_owned())
+            }).collect()
+        })
     }
 }
 
@@ -67,6 +92,8 @@ mod tests {
     use std::io::Write;
     use std::path::Path;
     use std::str;
+
+    // cat tests
 
     fn git_cat_file(
         repo_path: &Repository,
@@ -139,6 +166,72 @@ mod tests {
     fn test_cat_file_with_dir() {
         with_repo("content", "dir/existing.file", |repo, _| {
             let res = git_cat_file_err(repo, "master", "dir");
+            assert_eq!(res.code(), git2::ErrorCode::NotFound);
+            assert_eq!(res.class(), git2::ErrorClass::Invalid);
+        })
+    }
+
+    // ls tests
+
+    fn git_ls_dir(
+        repo_path: &Repository,
+        reference: &str,
+        directory: &str,
+    ) -> Result<Vec<String>, git2::Error> {
+        let gh = LibGitOps {};
+        gh.ls_dir(repo_path, reference, directory)
+    }
+
+    fn git_ls_dir_err(repo_path: &Repository, reference: &str, directory: &str) -> git2::Error {
+        git_ls_dir(repo_path, reference, directory).expect_err("should be an error")
+    }
+
+    #[test]
+    fn test_ls_dir_with_valid_branch_ref_and_dir() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_ls_dir(repo, "master", "dir").expect("should be ok");
+            assert_eq!(res, vec!["existing.file"]);
+        })
+    }
+
+    #[test]
+    fn test_ls_dir_with_valid_sha_ref_and_file() {
+        with_repo("file content", "dir/existing.file", |repo, commit_sha| {
+            let res = git_ls_dir(repo, commit_sha, "dir").expect("should be ok");
+            assert_eq!(res, vec!["existing.file"]);
+        })
+    }
+
+    #[test]
+    fn test_ls_dir_with_valid_tag_ref_and_file() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_ls_dir(repo, "this-is-a-tag", "dir").expect("should be ok");
+            assert_eq!(res, vec!["existing.file"]);
+        })
+    }
+
+    #[test]
+    fn test_ls_dir_with_non_existing_ref() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_ls_dir_err(repo, "idonot/exist", "dir");
+            assert_eq!(res.code(), git2::ErrorCode::NotFound);
+            assert_eq!(res.class(), git2::ErrorClass::Reference);
+        })
+    }
+
+    #[test]
+    fn test_ls_dir_with_non_existing_dir() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_ls_dir_err(repo, "master", "non-existing");
+            assert_eq!(res.code(), git2::ErrorCode::NotFound);
+            assert_eq!(res.class(), git2::ErrorClass::Tree);
+        })
+    }
+
+    #[test]
+    fn test_ls_dir_with_file() {
+        with_repo("content", "dir/existing.file", |repo, _| {
+            let res = git_ls_dir_err(repo, "master", "dir/existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Invalid);
         })
