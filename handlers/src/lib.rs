@@ -1,50 +1,30 @@
-use actix::dev::{MessageResponse, ResponseChannel};
+use actix::dev::MessageResponse;
 use actix::{Actor, Context, Handler, Message};
 use git::{git2::Repository, GitOps, LibGitOps};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+#[derive(Message)]
+#[rtype(result="CatFileResponse")]
 pub struct CatFile {
     pub repo_key: String,
     pub reference: String,
     pub path: PathBuf,
 }
 
-impl Message for CatFile {
-    type Result = CatFileResponse;
-}
-
+#[derive(MessageResponse)]
 pub struct CatFileResponse(pub Result<Vec<u8>, String>);
 
-impl<A, M> MessageResponse<A, M> for CatFileResponse
-    where A: Actor, M: Message<Result = CatFileResponse> {
-        fn handle<R: ResponseChannel<M>>(self, _: &mut A::Context, tx: Option<R>) {
-            if let Some(tx) = tx {
-                tx.send(self);
-            }
-        }
-    }
-
+#[derive(Message)]
+#[rtype(result="LsDirResponse")]
 pub struct LsDir {
     pub repo_key: String,
     pub reference: String,
     pub path: PathBuf,
 }
 
-impl Message for LsDir {
-    type Result = LsDirResponse;
-}
-
+#[derive(MessageResponse)]
 pub struct LsDirResponse(pub Result<Vec<PathBuf>, String>);
-
-impl<A, M> MessageResponse<A, M> for LsDirResponse
-    where A: Actor, M: Message<Result = LsDirResponse> {
-        fn handle<R: ResponseChannel<M>>(self, _: &mut A::Context, tx: Option<R>) {
-            if let Some(tx) = tx {
-                tx.send(self);
-            }
-        }
-    }
 
 pub struct GitRepos {
     repos: HashMap<String, Repository>,
