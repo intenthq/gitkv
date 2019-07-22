@@ -1,22 +1,22 @@
 pub extern crate git2;
 
 use git2::{Error, Repository};
-use std::{collections::HashMap, fs, path::Path};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}};
 
 pub trait GitOps {
     fn cat_file(
         &self,
         repo: &Repository,
         reference: &str,
-        filename: &str,
+        path: &Path,
     ) -> Result<Vec<u8>, Error>;
 
     fn ls_dir(
         &self,
         repo: &Repository,
         reference: &str,
-        directory: &str,
-    ) -> Result<Vec<String>, Error>;
+        path: &Path,
+    ) -> Result<Vec<PathBuf>, Error>;
 }
 
 pub struct LibGitOps;
@@ -28,11 +28,10 @@ impl GitOps for LibGitOps {
         &self,
         repo: &Repository,
         reference: &str,
-        filename: &str,
+        path: &Path,
     ) -> Result<Vec<u8>, Error> {
         let git_ref = repo.revparse_single(reference)?;
         let tree = git_ref.peel_to_tree()?;
-        let path = std::path::Path::new(filename);
         let te = tree.get_path(path)?;
 
         repo.find_blob(te.id()).map(|x| x.content().to_owned())
@@ -42,8 +41,8 @@ impl GitOps for LibGitOps {
         &self,
         repo: &Repository,
         reference: &str,
-        directory: &str,
-    ) -> Result<Vec<String>, Error> {
+        directory: &Path,
+    ) -> Result<Vec<PathBuf>, Error> {
         let git_ref = repo.revparse_single(reference)?;
         let tree = git_ref.peel_to_tree()?;
         let path = std::path::Path::new(directory);
@@ -51,7 +50,7 @@ impl GitOps for LibGitOps {
 
         repo.find_tree(te.id()).map({ |tree|
             tree.iter().flat_map({ |tree_entry|
-                tree_entry.name().map(|name| name.to_owned())
+                tree_entry.name().map(|name| name.into())
             }).collect()
         })
     }
@@ -90,7 +89,7 @@ mod tests {
     use git2::{Repository, Signature, Time};
     use std::fs;
     use std::io::Write;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use std::str;
 
     // cat tests
@@ -98,14 +97,14 @@ mod tests {
     fn git_cat_file(
         repo_path: &Repository,
         reference: &str,
-        filename: &str,
+        path: &str,
     ) -> Result<Vec<u8>, git2::Error> {
         let gh = LibGitOps {};
-        gh.cat_file(repo_path, reference, filename)
+        gh.cat_file(repo_path, reference, &PathBuf::from(path))
     }
 
-    fn git_cat_file_err(repo_path: &Repository, reference: &str, filename: &str) -> git2::Error {
-        git_cat_file(repo_path, reference, filename).expect_err("should be an error")
+    fn git_cat_file_err(repo_path: &Repository, reference: &str, path: &str) -> git2::Error {
+        git_cat_file(repo_path, reference, path).expect_err("should be an error")
     }
 
     #[test]
@@ -173,13 +172,22 @@ mod tests {
 
     // ls tests
 
+    // Converts a vec of string like things into a vec of owned paths.
+    macro_rules! as_path_bufs {
+        ($vec: expr) => {
+            {
+                $vec.iter().map(PathBuf::from).collect::<Vec<_>>()
+            }
+        };
+    }
+
     fn git_ls_dir(
         repo_path: &Repository,
         reference: &str,
-        directory: &str,
-    ) -> Result<Vec<String>, git2::Error> {
+        path: &str,
+    ) -> Result<Vec<PathBuf>, git2::Error> {
         let gh = LibGitOps {};
-        gh.ls_dir(repo_path, reference, directory)
+        gh.ls_dir(repo_path, reference, &PathBuf::from(path))
     }
 
     fn git_ls_dir_err(repo_path: &Repository, reference: &str, directory: &str) -> git2::Error {
@@ -190,7 +198,7 @@ mod tests {
     fn test_ls_dir_with_valid_branch_ref_and_dir() {
         with_repo("file content", "dir/existing.file", |repo, _| {
             let res = git_ls_dir(repo, "master", "dir").expect("should be ok");
-            assert_eq!(res, vec!["existing.file"]);
+            assert_eq!(res, as_path_bufs!(vec!["existing.file"]));
         })
     }
 
@@ -198,7 +206,7 @@ mod tests {
     fn test_ls_dir_with_valid_sha_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo, commit_sha| {
             let res = git_ls_dir(repo, commit_sha, "dir").expect("should be ok");
-            assert_eq!(res, vec!["existing.file"]);
+            assert_eq!(res, as_path_bufs!(vec!["existing.file"]));
         })
     }
 
@@ -206,7 +214,7 @@ mod tests {
     fn test_ls_dir_with_valid_tag_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo, _| {
             let res = git_ls_dir(repo, "this-is-a-tag", "dir").expect("should be ok");
-            assert_eq!(res, vec!["existing.file"]);
+            assert_eq!(res, as_path_bufs!(vec!["existing.file"]));
         })
     }
 

@@ -2,11 +2,12 @@ use actix::dev::{MessageResponse, ResponseChannel};
 use actix::{Actor, Context, Handler, Message};
 use git::{git2::Repository, GitOps, LibGitOps};
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 pub struct CatFile {
     pub repo_key: String,
     pub reference: String,
-    pub path: String,
+    pub path: PathBuf,
 }
 
 impl Message for CatFile {
@@ -27,14 +28,14 @@ impl<A, M> MessageResponse<A, M> for CatFileResponse
 pub struct LsDir {
     pub repo_key: String,
     pub reference: String,
-    pub path: String,
+    pub path: PathBuf,
 }
 
 impl Message for LsDir {
     type Result = LsDirResponse;
 }
 
-pub struct LsDirResponse(pub Result<Vec<String>, String>);
+pub struct LsDirResponse(pub Result<Vec<PathBuf>, String>);
 
 impl<A, M> MessageResponse<A, M> for LsDirResponse
     where A: Actor, M: Message<Result = LsDirResponse> {
