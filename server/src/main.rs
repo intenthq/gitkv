@@ -12,7 +12,7 @@ use actix_web::{error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
 use futures::future::Future;
 use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde_json;
 
 const DEFAULT_PORT: &str = "7791";
@@ -35,7 +35,7 @@ fn main() {
 #[derive(Deserialize)]
 pub struct PathParams {
     pub repo: String,
-    pub path: String
+    pub path: PathBuf
 }
 
 #[derive(Deserialize)]
