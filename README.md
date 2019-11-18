@@ -40,8 +40,9 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -h, --host <HOST>    host to listen to [default: localhost]
-    -p, --port <PORT>    port to listen to [default: 7791]
+    -h, --host <HOST>         host to listen to [default: localhost]
+    -p, --port <PORT>         port to listen to [default: 7791]
+    -r, --repo-root <PATH>    path where the different repositories are located [default: ./]
 ```
 
 You can modify the amount of logging with the `RUST_LOG` parameter:
