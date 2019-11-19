@@ -69,7 +69,7 @@ pub fn load_repos(root_path: &Path) -> HashMap<String, Repository> {
                         .and_then(|name| name.to_os_string().into_string().ok());
 
                     repo_name.and_then(|name| {
-                        Repository::open(path).ok().and_then(|repo| Some((name, repo)))
+                        Repository::open(path).ok().map(|repo| (name, repo))
                     })
                 } else {
                     None

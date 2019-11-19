@@ -130,7 +130,11 @@ fn ls_dir((app_state, path_params, query_params): (web::Data<AppState>, web::Pat
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
     clap::App::new(crate_name!())
         .version(crate_version!())
-        .author(crate_authors!("\n"))
+        // FIXME: Switch back to `crate_authors` macro once deprecation warnings are fixed in
+        // stable warnings.
+        //
+        // .author(crate_authors!("\n"))
+        .author("Intent HQ")
         .about(crate_description!())
         .arg(
             clap::Arg::with_name("port")
