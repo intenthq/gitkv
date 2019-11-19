@@ -196,7 +196,7 @@ mod tests {
 
             h1::H1Service::new(
                 App::new().data(AppState {
-                    git_repos: addr.clone(),
+                    git_repos: addr,
                 })
                 .wrap(middleware::Logger::default())
                 .route("/repos/{repo}/cat/{path:.+}", web::get().to_async(cat_file))
