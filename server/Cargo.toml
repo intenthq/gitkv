@@ -21,7 +21,7 @@ env_logger = "^0.7.1"
 
 [dev-dependencies]
 actix-http = "^0.2.11"
-actix-http-test = "^0.2.5"
+actix-http-test = "^1.0.0"
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
 # feature flag of openssl-sys which compiles libopenssl statically for us.
