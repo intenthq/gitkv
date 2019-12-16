@@ -20,7 +20,7 @@ log = "^0.4.8"
 env_logger = "^0.7.1"
 
 [dev-dependencies]
-actix-http = "^0.2.11"
+actix-http = "^1.0.0"
 actix-http-test = "^0.2.5"
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
