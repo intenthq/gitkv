@@ -17,6 +17,8 @@ pub trait GitOps {
         reference: &str,
         path: &Path,
     ) -> Result<Vec<PathBuf>, Error>;
+
+    fn resolve_ref(&self, repo: &Repository, reference: &str) -> Result<String, Error>;
 }
 
 pub struct LibGitOps;
@@ -53,6 +55,11 @@ impl GitOps for LibGitOps {
                 tree_entry.name().map(|name| name.into())
             }).collect()
         })
+    }
+
+    fn resolve_ref(&self, repo: &Repository, reference: &str) -> Result<String, Error> {
+        let git_ref = repo.revparse_single(reference)?;
+        git_ref.peel_to_commit().map(|c| c.id().to_string())
     }
 }
 
@@ -242,6 +249,46 @@ mod tests {
             let res = git_ls_dir_err(repo, "master", "dir/existing.file");
             assert_eq!(res.code(), git2::ErrorCode::NotFound);
             assert_eq!(res.class(), git2::ErrorClass::Invalid);
+        })
+    }
+
+    // resolve tests
+
+    fn git_resolve(repo_path: &Repository, reference: &str) -> Result<String, git2::Error> {
+        let gh = LibGitOps {};
+        gh.resolve_ref(repo_path, reference)
+    }
+
+    #[test]
+    fn test_resolve_ref_with_valid_branch_ref() {
+        with_repo("file content", "dir/existing.file", |repo, commit_sha| {
+            let res = git_resolve(repo, "master").expect("should be ok");
+            assert_eq!(res, commit_sha);
+        })
+    }
+
+    #[test]
+    fn test_resolve_ref_with_valid_sha() {
+        with_repo("file content", "dir/existing.file", |repo, commit_sha| {
+            let res = git_resolve(repo, commit_sha).expect("should be ok");
+            assert_eq!(res, commit_sha);
+        })
+    }
+
+    #[test]
+    fn test_resolve_ref_with_valid_tag_ref() {
+        with_repo("file content", "dir/existing.file", |repo, commit_sha| {
+            let res = git_resolve(repo, "this-is-a-tag").expect("should be ok");
+            assert_eq!(res, commit_sha);
+        })
+    }
+
+    #[test]
+    fn test_resolve_ref_with_non_existing_ref() {
+        with_repo("file content", "dir/existing.file", |repo, _| {
+            let res = git_resolve(repo, "idonot/exist").expect_err("should be an error");
+            assert_eq!(res.code(), git2::ErrorCode::NotFound);
+            assert_eq!(res.class(), git2::ErrorClass::Reference);
         })
     }
 
