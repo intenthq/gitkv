@@ -398,12 +398,14 @@ mod tests {
 
     // resolve tests
 
+    fn origin_master_sha() -> String { String::from("e6134971608eb6ba7eb29047d5884c3377bc1fd2") }
+
     #[test]
-    fn resolve_ref_with_commit_sha() {
+    fn resolve_ref_with_empty_reference() {
         assert_test_server_responds_with!(
-            "/repos/fixtures/resolve?reference=467e981f94686d7a1db395f8acfd3cf7e7adfcd3",
+            "/repos/fixtures/resolve",
             200,
-            "467e981f94686d7a1db395f8acfd3cf7e7adfcd3"
+            origin_master_sha()
         )
     }
 
@@ -412,7 +414,16 @@ mod tests {
         assert_test_server_responds_with!(
             "/repos/fixtures/resolve?reference=origin/master",
             200,
-            "e6134971608eb6ba7eb29047d5884c3377bc1fd2"
+            origin_master_sha()
+        )
+    }
+
+    #[test]
+    fn resolve_ref_with_commit_sha() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/resolve?reference=467e981f94686d7a1db395f8acfd3cf7e7adfcd3",
+            200,
+            "467e981f94686d7a1db395f8acfd3cf7e7adfcd3"
         )
     }
 
