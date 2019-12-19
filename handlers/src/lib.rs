@@ -26,6 +26,16 @@ pub struct LsDir {
 #[derive(MessageResponse)]
 pub struct LsDirResponse(pub Result<Vec<PathBuf>, String>);
 
+#[derive(Message)]
+#[rtype(result = "ResolveRefResponse")]
+pub struct ResolveRef {
+    pub repo_key: String,
+    pub reference: String,
+}
+
+#[derive(MessageResponse)]
+pub struct ResolveRefResponse(pub Result<String, String>);
+
 pub struct GitRepos {
     repos: HashMap<String, Repository>,
     ops: Box<dyn GitOps>,
@@ -67,6 +77,21 @@ impl Handler<LsDir> for GitRepos {
                 .ops
                 .ls_dir(repo, &req.reference, &req.path)
                 .map_err(|x| x.to_string()),
+            None => Err(format!("No repo found with name '{}'", &req.repo_key)),
+        })
+    }
+}
+
+impl Handler<ResolveRef> for GitRepos {
+    type Result = ResolveRefResponse;
+
+    fn handle(&mut self, req: ResolveRef, _: &mut Self::Context) -> Self::Result {
+        ResolveRefResponse(match self.repos.get(&req.repo_key) {
+            Some(repo) => self
+                .ops
+                .resolve_ref(repo, &req.reference)
+                .map_err(|x| x.to_string())
+                .map(|id| id.to_string()),
             None => Err(format!("No repo found with name '{}'", &req.repo_key)),
         })
     }

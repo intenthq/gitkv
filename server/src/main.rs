@@ -11,7 +11,7 @@ use actix::{Actor, Addr, System};
 use actix_web::{error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
 use futures::future::Future;
-use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse};
+use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse, ResolveRef, ResolveRefResponse,};
 use std::path::{Path, PathBuf};
 use serde_json;
 
@@ -36,6 +36,11 @@ fn main() {
 pub struct PathParams {
     pub repo: String,
     pub path: PathBuf
+}
+
+#[derive(Deserialize)]
+pub struct RepoPathParams {
+    pub repo: String,
 }
 
 #[derive(Deserialize)]
@@ -66,13 +71,13 @@ fn run_server(host: &str, port: &str, repo_root: &Path) {
         .wrap(middleware::Logger::default())
         .route("/repos/{repo}/cat/{path:.+}", web::get().to_async(cat_file))
         .route("/repos/{repo}/ls/{path:.+}", web::get().to_async(ls_dir))
+        .route("/repos/{repo}/resolve", web::get().to_async(resolve_ref))
     })
     .bind(listen_address)
     .expect("can't bind into address")
     .run()
     .expect("could not start server");
 }
-
 
 macro_rules! not_found {
     () => {
@@ -126,6 +131,28 @@ fn ls_dir((app_state, path_params, query_params): (web::Data<AppState>, web::Pat
             })
         })
     }
+fn resolve_ref(
+    (app_state, repo_path_params, query_params): (
+        web::Data<AppState>,
+        web::Path<RepoPathParams>,
+        web::Query<QueryParams>,
+    ),
+) -> impl Future<Item = String, Error = error::Error> {
+    let addr: Addr<GitRepos> = app_state.git_repos.clone();
+    let repo_key = repo_path_params.repo.clone();
+    let reference = query_params
+        .reference
+        .as_ref()
+        .map(String::as_str)
+        .unwrap_or(DEFAULT_REFERENCE)
+        .to_string();
+    addr.send(ResolveRef {
+        repo_key,
+        reference,
+    })
+    .map_err(not_found!())
+    .and_then(|ResolveRefResponse(resp)| resp.map_err(not_found!()))
+}
 
 fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
     clap::App::new(crate_name!())
@@ -201,6 +228,7 @@ mod tests {
                 .wrap(middleware::Logger::default())
                 .route("/repos/{repo}/cat/{path:.+}", web::get().to_async(cat_file))
                 .route("/repos/{repo}/ls/{path:.+}", web::get().to_async(ls_dir))
+                    .route("/repos/{repo}/resolve", web::get().to_async(resolve_ref)),
             )
         })
     }
@@ -366,5 +394,25 @@ mod tests {
             200,
             "[\"file-a\",\"file-b\",\"file-c\",\"nested-dir\"]"
         );
+    }
+
+    // resolve tests
+
+    #[test]
+    fn resolve_ref_with_empty_repo() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/resolve?reference=467e981f94686d7a1db395f8acfd3cf7e7adfcd3",
+            200,
+            "467e981f94686d7a1db395f8acfd3cf7e7adfcd3"
+        )
+    }
+
+    #[test]
+    fn resolve_ref_with_invalid_ref() {
+        assert_test_server_responds_with!(
+            "/repos/fixtures/resolve?reference=idonot/exist",
+            404,
+            "revspec 'idonot/exist' not found; class=Reference (4); code=NotFound (-3)"
+        )
     }
 }
