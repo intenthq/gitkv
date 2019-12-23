@@ -90,8 +90,7 @@ impl Handler<ResolveRef> for GitRepos {
             Some(repo) => self
                 .ops
                 .resolve_ref(repo, &req.reference)
-                .map_err(|x| x.to_string())
-                .map(|id| id.to_string()),
+                .map_err(|x| x.to_string()),
             None => Err(format!("No repo found with name '{}'", &req.repo_key)),
         })
     }
