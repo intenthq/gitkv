@@ -10,7 +10,7 @@ license = "MIT"
 git = { path = "../git" }
 handlers = { path = "../handlers" }
 actix = "^0.8.3"
-actix-web = "^1.0.9"
+actix-web = "^2.0.0"
 clap = "^2.33.0"
 futures = "^0.1.26"
 serde = "^1.0.102"
