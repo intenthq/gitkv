@@ -1,4 +1,5 @@
 language: rust
+os: linux
 dist: xenial
 osx_image: xcode10.2
 
@@ -23,7 +24,7 @@ addons:
     packages:
       - cmake
 
-matrix:
+jobs:
   fast_finish: true
   allow_failures:
     - rust: beta
@@ -73,8 +74,8 @@ after_success:
 deploy:
   # Push binaries to the GitHub release for this version.
   - provider: releases
-    skip_cleanup: true
-    api_key:
+    edge: true
+    token:
       secure: fvMOLUfi9KoEudSyv2LtwgYP7bh+f1nelj/TeIjteP+u1Omz1p9pP6nIDCrie5tFtY3q4Jor+R7IZoffe/G6KAc7sI4Ndhmr8uB+S9US4gmRI98VMFdGGtjoZzro8Kdrg8+9R0exBgNXJW+ubduSsM0CzKq6HPxmd3TSKRt+2G5vLA5btMbLeeLc8xpmlGrEw2nCjUbEcPislGnQ54wrbrLb+u5SzjPD2G7v8dk1tksfgtcISMylb/aQ+UGrCmMHZfDhAZaooLzxRF+aBtXtku+BFWGjubGa4H/Fj0asKgRic4OzGCi9XwVoBYUgKyb3J7tyO+DtKihBooPytgNcN6zMhqGgxPI6sIFijGatoUZMGKN/J42fpj2f719riaGGuQOcjXbLENl3GfooO97E7mf84SpozhkjYEHEyLRMZTJVk66mCBcrAd6gIa2hdOB3l4Mxy1MzfmDbWwDDHsVflr7fBW8QaWdazziIR12N3iyC7cQdH2lc13l8/N5ffbeTzjWGscZjQWBRECTXjuDklQ9gmG3qlUCdKKsDqMaiuTl21Pi9uqeuebgZS2aVf+y40mdzKd3k89IBUEdMKrvqCvpCV16hm1rlxMtJaVxd9C6gjjrn3hkCWSUXIYzDrLXqwMNSZm02qIu6VEjTyy7rbCcr7fZgti+PbeP43MPvq9s=
     file: target/$TARGET/release/gitkv-$TARGET
     on:
@@ -83,9 +84,8 @@ deploy:
       branch: /^v\d+\.\d+\.\d+.*$/
   # Push Docker container to Docker Hub tagger for this version.
   - provider: script
-    skip_cleanup: true
-    script:
-      - ./docker/build.sh $TRAVIS_BRANCH $TARGET && docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" && docker push intenthq/gitkv:$TRAVIS_BRANCH
+    edge: true
+    script: ./docker/build.sh $TRAVIS_BRANCH $TARGET && docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD" && docker push intenthq/gitkv:$TRAVIS_BRANCH
     on:
       condition: $TRAVIS_OS_NAME = "linux"
       rust: stable
