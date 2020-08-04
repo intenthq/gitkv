@@ -89,7 +89,7 @@ pub fn load_repos(root_path: &Path) -> HashMap<String, Repository> {
 #[cfg(test)]
 mod tests {
 
-    extern crate tempdir;
+    extern crate tempfile;
 
     use super::{GitOps, LibGitOps};
 
@@ -296,7 +296,7 @@ mod tests {
     where
         F: Fn(&Repository, &str),
     {
-        let dir = tempdir::TempDir::new("testgitrepo").expect("can't create tmp dir");
+        let dir = tempfile::Builder::new().prefix("testgitrepo").tempdir().expect("can't create tmp dir");
 
         let repo = Repository::init(&dir).expect("can't initialise repository");
 

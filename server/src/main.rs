@@ -13,7 +13,6 @@ use env_logger::Env;
 use futures::future::Future;
 use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse, ResolveRef, ResolveRefResponse,};
 use std::path::{Path, PathBuf};
-use serde_json;
 
 const DEFAULT_PORT: &str = "7791";
 const DEFAULT_HOST: &str = "localhost";
@@ -92,8 +91,7 @@ fn cat_file((app_state, path_params, query_params): (web::Data<AppState>, web::P
         let path = path_params.path.clone();
         let reference = query_params
             .reference
-            .as_ref()
-            .map(String::as_str)
+            .as_deref()
             .unwrap_or(DEFAULT_REFERENCE)
             .to_string();
 
@@ -114,8 +112,7 @@ fn ls_dir((app_state, path_params, query_params): (web::Data<AppState>, web::Pat
         let path = path_params.path.clone();
         let reference = query_params
             .reference
-            .as_ref()
-            .map(String::as_str)
+            .as_deref()
             .unwrap_or(DEFAULT_REFERENCE)
             .to_string();
 
@@ -142,8 +139,7 @@ fn resolve_ref(
     let repo_key = repo_path_params.repo.clone();
     let reference = query_params
         .reference
-        .as_ref()
-        .map(String::as_str)
+        .as_deref()
         .unwrap_or(DEFAULT_REFERENCE)
         .to_string();
     addr.send(ResolveRef {
