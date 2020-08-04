@@ -1,0 +1,40 @@
+use assert_cmd::Command;
+
+#[test]
+fn fails_to_start_with_invalid_host() {
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+    let assert = cmd
+        .arg("--host=")
+        .assert();
+
+    assert.failure();
+}
+
+#[test]
+fn fails_to_start_with_invalid_port() {
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+    let assert = cmd
+        .arg("--port=")
+        .assert();
+
+    assert.failure();
+}
+
+#[test]
+fn fails_to_start_with_invalid_repo_root() {
+    let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
+    let assert = cmd
+        .arg("--repo-root=")
+        .assert();
+
+    assert.failure();
+}
+
+// #[test]
+// fn can_cat_file() {
+//     let cmd = crate::cargo::cargo_bin_cmd(env!("CARGO_PKG_NAME")).unwrap();
+
+//     cmd.unwrap()
+
+//     assert.success();
+// }

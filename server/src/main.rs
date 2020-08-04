@@ -198,38 +198,7 @@ fn parse_args<'a, 'b>() -> clap::App<'a, 'b> {
 mod tests {
     use super::*;
     use actix_web::{test, App};
-    use assert_cmd::Command;
     use std::str;
-
-    #[test]
-    fn fails_with_invalid_host() {
-        let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-        let assert = cmd
-            .arg("--host=")
-            .assert();
-
-        assert.failure();
-    }
-
-    #[test]
-    fn fails_with_invalid_port() {
-        let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-        let assert = cmd
-            .arg("--port=")
-            .assert();
-
-        assert.failure();
-    }
-
-    #[test]
-    fn fails_with_invalid_repo_root() {
-        let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-        let assert = cmd
-            .arg("--repo-root=")
-            .assert();
-
-        assert.failure();
-    }
 
     fn start_test_server() -> test::TestServer {
         test::start_with(test::config().h1(), || {

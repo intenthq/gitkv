@@ -9,21 +9,19 @@ license = "MIT"
 [dependencies]
 git = { path = "../git" }
 handlers = { path = "../handlers" }
-actix = "0.9.0"
-actix-web = "2.0.0"
-actix-rt = "1.1.1"
-clap = "2.33.1"
-futures = "0.3.5"
-serde = "1.0.114"
-serde_derive = "1.0.114"
-serde_json = "1.0.57"
-log = "0.4.11"
-env_logger = "0.7.1"
+actix = "0.9.0" # Actor communication between handlers and Git
+actix-rt = "1.1.1" # Actix macros
+actix-web = "2.0.0" # Web framework
+clap = "2.33.1" # CLI argument parsing
+env_logger = "0.7.1" # Configure logging level with env variables
+log = "0.4.11" # Logging facade
+serde = "1.0.114" # Serialisation of results
+serde_derive = "1.0.114" # Macros for deriving Serde converstions
+serde_json = "1.0.57" # JSON support for Serde
 
 [dev-dependencies]
-actix-http = "1.0.1"
-assert_cmd = "1.0.1"
-predicates = "1.0.5"
+assert_cmd = "1.0.1" # Run our binaries from the integration tests
+predicates = "1.0.5" # Assert on binaries being run in the integration tests
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
 # feature flag of openssl-sys which compiles libopenssl statically for us.
