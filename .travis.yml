@@ -68,7 +68,7 @@ before_script:
 script:
   - cargo build --target $TARGET --release
   - cargo clippy --all-targets --all-features -- -D warnings
-  - cargo test --target $TARGET
+  - cargo test --target $TARGET --release
   - cargo audit
   # Make a copy of the binary named nicely for the GitHub release, if needed.
   - cp target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET && chmod +x target/$TARGET/release/gitkv-$TARGET
