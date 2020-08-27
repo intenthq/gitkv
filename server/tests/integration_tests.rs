@@ -30,11 +30,14 @@ fn fails_to_start_with_invalid_repo_root() {
     assert.failure();
 }
 
+// FIXME: How to test with a process that never ends unless terminated?
 // #[test]
 // fn can_cat_file() {
-//     let cmd = crate::cargo::cargo_bin_cmd(env!("CARGO_PKG_NAME")).unwrap();
+//     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
 
-//     cmd.unwrap()
+//     let assert = cmd
+//         .arg("--repo-root=test")
+//         .assert();
 
 //     assert.success();
 // }

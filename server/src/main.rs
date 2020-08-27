@@ -7,7 +7,7 @@ extern crate actix_web;
 extern crate log;
 extern crate env_logger;
 
-use actix::{Actor, Addr, System};
+use actix::{Actor, Addr};
 use actix_web::{get, error, http, middleware, web, App, HttpServer};
 use env_logger::Env;
 use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse, ResolveRef, ResolveRefResponse,};
@@ -52,7 +52,6 @@ async fn main() -> std::io::Result<()> {
 }
 
 async fn run_server(host: &str, port: &str, repo_root: &Path) -> std::io::Result<()> {
-    let _actor_system = System::new("gitkv-server");
     let repos = git::load_repos(&repo_root);
 
     info!("Loaded Git repos: {:?}", repos.keys());
