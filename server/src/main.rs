@@ -18,19 +18,6 @@ const DEFAULT_HOST: &str = "localhost";
 const DEFAULT_REPO_ROOT: &str = "./";
 const DEFAULT_REFERENCE: &str = "origin/master";
 
-#[actix_rt::main]
-async fn main() -> std::io::Result<()> {
-    env_logger::from_env(Env::default().default_filter_or("gitkv=info")).init();
-
-    let args = parse_args().get_matches();
-
-    let host = args.value_of("host").unwrap_or(DEFAULT_HOST);
-    let port = args.value_of("port").unwrap_or(DEFAULT_PORT);
-    let repo_root = Path::new(args.value_of("repo-root").unwrap_or(DEFAULT_REPO_ROOT));
-
-    run_server(host, port, repo_root).await
-}
-
 #[derive(Deserialize)]
 pub struct PathParams {
     pub repo: String,
@@ -49,6 +36,19 @@ pub struct QueryParams {
 
 pub struct AppState {
     pub git_repos: Addr<GitRepos>,
+}
+
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::from_env(Env::default().default_filter_or("gitkv=info")).init();
+
+    let args = parse_args().get_matches();
+
+    let host = args.value_of("host").unwrap_or(DEFAULT_HOST);
+    let port = args.value_of("port").unwrap_or(DEFAULT_PORT);
+    let repo_root = Path::new(args.value_of("repo-root").unwrap_or(DEFAULT_REPO_ROOT));
+
+    run_server(host, port, repo_root).await
 }
 
 async fn run_server(host: &str, port: &str, repo_root: &Path) -> std::io::Result<()> {
