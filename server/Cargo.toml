@@ -9,7 +9,7 @@ license = "MIT"
 [dependencies]
 git = { path = "../git" }
 handlers = { path = "../handlers" }
-actix = "0.10.0" # Actor communication between handlers and Git
+actix = "0.11.0" # Actor communication between handlers and Git
 actix-rt = "1.1.1" # Actix macros
 actix-web = "3.0.2" # Web framework
 clap = "2.33.1" # CLI argument parsing
