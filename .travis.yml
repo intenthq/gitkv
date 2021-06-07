@@ -7,8 +7,8 @@ osx_image: xcode10.2
 # We avoid using cache: cargo which blows up the cache.
 cache:
   - directories:
-    - "${HOME}/.cargo"
-    - "${HOME}/kcov/"
+      - "${HOME}/.cargo"
+      - "${HOME}/kcov/"
 
 before_cache:
   - "rm -rf ${HOME}/.cargo/registry"
@@ -64,11 +64,13 @@ before_script:
   - cargo install cargo-audit || echo "cargo-update already installed"
   - cargo install cargo-travis || echo "cargo-travis already installed"
   - rustup component add clippy
+  - rustup component add rustfmt
 
 script:
   - cargo build --target $TARGET --release
   - cargo clippy --all-targets --all-features -- -D warnings
   - cargo test --target $TARGET --release
+  - cargo fmt --all -- --check
   - cargo audit
   # Make a copy of the binary named nicely for the GitHub release, if needed.
   - cp target/$TARGET/release/gitkv target/$TARGET/release/gitkv-$TARGET && chmod +x target/$TARGET/release/gitkv-$TARGET
