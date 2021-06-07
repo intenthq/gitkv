@@ -104,8 +104,8 @@ async fn cat_file(
     // TODO return proper content type depending on the content of the blob
     addr.send(CatFile {
         repo_key,
-        path,
         reference,
+        path,
     })
     .await
     .map_err(not_found!())
@@ -131,8 +131,8 @@ async fn ls_dir(
 
     addr.send(LsDir {
         repo_key,
-        path,
         reference,
+        path,
     })
     .await
     .map_err(not_found!())
