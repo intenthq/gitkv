@@ -47,7 +47,7 @@ impl GitOps for LibGitOps {
         repo.find_tree(te.id()).map({
             |tree| {
                 tree.iter()
-                    .flat_map({ |tree_entry| tree_entry.name().map(|name| name.into()) })
+                    .flat_map(|tree_entry| tree_entry.name().map(|name| name.into()))
                     .collect()
             }
         })
