@@ -3,9 +3,7 @@ use assert_cmd::Command;
 #[test]
 fn fails_to_start_with_invalid_host() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-    let assert = cmd
-        .arg("--host=")
-        .assert();
+    let assert = cmd.arg("--host=").assert();
 
     assert.failure();
 }
@@ -13,9 +11,7 @@ fn fails_to_start_with_invalid_host() {
 #[test]
 fn fails_to_start_with_invalid_port() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-    let assert = cmd
-        .arg("--port=")
-        .assert();
+    let assert = cmd.arg("--port=").assert();
 
     assert.failure();
 }
@@ -23,9 +19,7 @@ fn fails_to_start_with_invalid_port() {
 #[test]
 fn fails_to_start_with_invalid_repo_root() {
     let mut cmd = Command::cargo_bin(env!("CARGO_PKG_NAME")).unwrap();
-    let assert = cmd
-        .arg("--repo-root=")
-        .assert();
+    let assert = cmd.arg("--repo-root=").assert();
 
     assert.failure();
 }

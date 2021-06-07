@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Message)]
-#[rtype(result="CatFileResponse")]
+#[rtype(result = "CatFileResponse")]
 pub struct CatFile {
     pub repo_key: String,
     pub reference: String,
@@ -16,7 +16,7 @@ pub struct CatFile {
 pub struct CatFileResponse(pub Result<Vec<u8>, String>);
 
 #[derive(Message)]
-#[rtype(result="LsDirResponse")]
+#[rtype(result = "LsDirResponse")]
 pub struct LsDir {
     pub repo_key: String,
     pub reference: String,

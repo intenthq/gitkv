@@ -8,9 +8,11 @@ extern crate log;
 extern crate env_logger;
 
 use actix::{Actor, Addr};
-use actix_web::{get, error, http, middleware, web, App, HttpServer};
+use actix_web::{error, get, http, middleware, web, App, HttpServer};
 use env_logger::Env;
-use handlers::{CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse, ResolveRef, ResolveRefResponse,};
+use handlers::{
+    CatFile, CatFileResponse, GitRepos, LsDir, LsDirResponse, ResolveRef, ResolveRefResponse,
+};
 use std::path::{Path, PathBuf};
 
 const DEFAULT_PORT: &str = "7791";
@@ -21,7 +23,7 @@ const DEFAULT_REFERENCE: &str = "origin/master";
 #[derive(Deserialize)]
 pub struct PathParams {
     pub repo: String,
-    pub path: PathBuf
+    pub path: PathBuf,
 }
 
 #[derive(Deserialize)]
@@ -62,13 +64,14 @@ async fn run_server(host: &str, port: &str, repo_root: &Path) -> std::io::Result
     info!("Listening on {}", listen_address);
 
     HttpServer::new(move || {
-        App::new().data(AppState {
-            git_repos: addr.clone(),
-        })
-        .wrap(middleware::Logger::default())
-        .service(cat_file)
-        .service(ls_dir)
-        .service(resolve_ref)
+        App::new()
+            .data(AppState {
+                git_repos: addr.clone(),
+            })
+            .wrap(middleware::Logger::default())
+            .service(cat_file)
+            .service(ls_dir)
+            .service(resolve_ref)
     })
     .bind(listen_address)?
     .run()
@@ -82,53 +85,62 @@ macro_rules! not_found {
 }
 
 #[get("/repos/{repo}/cat/{path:.+}")]
-async fn cat_file((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
-    -> Result<web::Bytes, error::Error> {
-        let addr: Addr<GitRepos> = app_state.git_repos.clone();
-        let repo_key = path_params.repo.clone();
-        let path = path_params.path.clone();
-        let reference = query_params
-            .reference
-            .as_deref()
-            .unwrap_or(DEFAULT_REFERENCE)
-            .to_string();
+async fn cat_file(
+    (app_state, path_params, query_params): (
+        web::Data<AppState>,
+        web::Path<PathParams>,
+        web::Query<QueryParams>,
+    ),
+) -> Result<web::Bytes, error::Error> {
+    let addr: Addr<GitRepos> = app_state.git_repos.clone();
+    let repo_key = path_params.repo.clone();
+    let path = path_params.path.clone();
+    let reference = query_params
+        .reference
+        .as_deref()
+        .unwrap_or(DEFAULT_REFERENCE)
+        .to_string();
 
-        // TODO return proper content type depending on the content of the blob
-        addr.send(CatFile {
-            repo_key,
-            path,
-            reference,
-        })
-        .await
-        .map_err(not_found!())
-        .and_then(|CatFileResponse(resp)| resp.map(web::Bytes::from).map_err(not_found!()))
-    }
+    // TODO return proper content type depending on the content of the blob
+    addr.send(CatFile {
+        repo_key,
+        path,
+        reference,
+    })
+    .await
+    .map_err(not_found!())
+    .and_then(|CatFileResponse(resp)| resp.map(web::Bytes::from).map_err(not_found!()))
+}
 
 #[get("/repos/{repo}/ls/{path:.+}")]
-async fn ls_dir((app_state, path_params, query_params): (web::Data<AppState>, web::Path<PathParams>, web::Query<QueryParams>))
-    -> Result<String, error::Error> {
-        let addr: Addr<GitRepos> = app_state.git_repos.clone();
-        let repo_key = path_params.repo.clone();
-        let path = path_params.path.clone();
-        let reference = query_params
-            .reference
-            .as_deref()
-            .unwrap_or(DEFAULT_REFERENCE)
-            .to_string();
+async fn ls_dir(
+    (app_state, path_params, query_params): (
+        web::Data<AppState>,
+        web::Path<PathParams>,
+        web::Query<QueryParams>,
+    ),
+) -> Result<String, error::Error> {
+    let addr: Addr<GitRepos> = app_state.git_repos.clone();
+    let repo_key = path_params.repo.clone();
+    let path = path_params.path.clone();
+    let reference = query_params
+        .reference
+        .as_deref()
+        .unwrap_or(DEFAULT_REFERENCE)
+        .to_string();
 
-        addr.send(LsDir {
-            repo_key,
-            path,
-            reference,
-        })
-        .await
-        .map_err(not_found!())
-        .and_then(|LsDirResponse(resp)| {
-            resp.map_err(not_found!()).and_then(|children| {
-                serde_json::to_string(&children).map_err(not_found!())
-            })
-        })
-    }
+    addr.send(LsDir {
+        repo_key,
+        path,
+        reference,
+    })
+    .await
+    .map_err(not_found!())
+    .and_then(|LsDirResponse(resp)| {
+        resp.map_err(not_found!())
+            .and_then(|children| serde_json::to_string(&children).map_err(not_found!()))
+    })
+}
 
 #[get("/repos/{repo}/resolve")]
 async fn resolve_ref(
@@ -204,9 +216,7 @@ mod tests {
             let addr = GitRepos::new(git::load_repos(Path::new("test"))).start();
 
             App::new()
-                .data(AppState {
-                    git_repos: addr,
-                })
+                .data(AppState { git_repos: addr })
                 .service(cat_file)
                 .service(ls_dir)
                 .service(resolve_ref)
@@ -231,20 +241,12 @@ mod tests {
 
     #[actix_rt::test]
     async fn cat_file_with_empty_repo() {
-        assert_test_server_responds_with!(
-            "/repos//cat/README.md?reference=origin/master",
-            404,
-            ""
-        )
+        assert_test_server_responds_with!("/repos//cat/README.md?reference=origin/master", 404, "")
     }
 
     #[actix_rt::test]
-    async fn  cat_file_with_empty_path() {
-        assert_test_server_responds_with!(
-            "/repos/fixtures/cat/?reference=origin/master",
-            404,
-            ""
-        )
+    async fn cat_file_with_empty_path() {
+        assert_test_server_responds_with!("/repos/fixtures/cat/?reference=origin/master", 404, "")
     }
 
     #[actix_rt::test]
@@ -305,20 +307,12 @@ mod tests {
 
     #[actix_rt::test]
     async fn ls_dir_with_empty_repo() {
-        assert_test_server_responds_with!(
-            "/repos//ls/a-dir?reference=origin/master",
-            404,
-            ""
-        )
+        assert_test_server_responds_with!("/repos//ls/a-dir?reference=origin/master", 404, "")
     }
 
     #[actix_rt::test]
     async fn ls_dir_with_empty_path() {
-        assert_test_server_responds_with!(
-            "/repos/fixtures/ls/?reference=origin/master",
-            404,
-            ""
-        )
+        assert_test_server_responds_with!("/repos/fixtures/ls/?reference=origin/master", 404, "")
     }
 
     #[actix_rt::test]
@@ -379,15 +373,13 @@ mod tests {
 
     // resolve tests
 
-    fn origin_master_sha() -> String { String::from("e6134971608eb6ba7eb29047d5884c3377bc1fd2") }
+    fn origin_master_sha() -> String {
+        String::from("e6134971608eb6ba7eb29047d5884c3377bc1fd2")
+    }
 
     #[actix_rt::test]
     async fn resolve_ref_with_empty_reference() {
-        assert_test_server_responds_with!(
-            "/repos/fixtures/resolve",
-            200,
-            origin_master_sha()
-        )
+        assert_test_server_responds_with!("/repos/fixtures/resolve", 200, origin_master_sha())
     }
 
     #[actix_rt::test]

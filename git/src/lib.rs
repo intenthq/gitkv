@@ -1,15 +1,14 @@
 pub extern crate git2;
 
 use git2::{Error, Repository};
-use std::{collections::HashMap, fs, path::{Path, PathBuf}};
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub trait GitOps {
-    fn cat_file(
-        &self,
-        repo: &Repository,
-        reference: &str,
-        path: &Path,
-    ) -> Result<Vec<u8>, Error>;
+    fn cat_file(&self, repo: &Repository, reference: &str, path: &Path) -> Result<Vec<u8>, Error>;
 
     fn ls_dir(
         &self,
@@ -26,12 +25,7 @@ pub struct LibGitOps;
 impl GitOps for LibGitOps {
     /// Given an existing git repository, it will read the blob that the reference and the filename
     /// point to and return it as a String.
-    fn cat_file(
-        &self,
-        repo: &Repository,
-        reference: &str,
-        path: &Path,
-    ) -> Result<Vec<u8>, Error> {
+    fn cat_file(&self, repo: &Repository, reference: &str, path: &Path) -> Result<Vec<u8>, Error> {
         let git_ref = repo.revparse_single(reference)?;
         let tree = git_ref.peel_to_tree()?;
         let te = tree.get_path(path)?;
@@ -50,10 +44,12 @@ impl GitOps for LibGitOps {
         let path = std::path::Path::new(directory);
         let te = tree.get_path(path)?;
 
-        repo.find_tree(te.id()).map({ |tree|
-            tree.iter().flat_map({ |tree_entry|
-                tree_entry.name().map(|name| name.into())
-            }).collect()
+        repo.find_tree(te.id()).map({
+            |tree| {
+                tree.iter()
+                    .flat_map({ |tree_entry| tree_entry.name().map(|name| name.into()) })
+                    .collect()
+            }
         })
     }
 
@@ -75,9 +71,7 @@ pub fn load_repos(root_path: &Path) -> HashMap<String, Repository> {
                         .file_stem()
                         .and_then(|name| name.to_os_string().into_string().ok());
 
-                    repo_name.and_then(|name| {
-                        Repository::open(path).ok().map(|repo| (name, repo))
-                    })
+                    repo_name.and_then(|name| Repository::open(path).ok().map(|repo| (name, repo)))
                 } else {
                     None
                 }
@@ -117,8 +111,7 @@ mod tests {
     #[test]
     fn test_cat_file_with_valid_branch_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo, _| {
-            let res =
-                git_cat_file(repo, "master", "dir/existing.file").expect("should be ok");
+            let res = git_cat_file(repo, "master", "dir/existing.file").expect("should be ok");
             assert_eq!(
                 std::str::from_utf8(&res).expect("valid utf8"),
                 "file content"
@@ -129,8 +122,7 @@ mod tests {
     #[test]
     fn test_cat_file_with_valid_sha_ref_and_file() {
         with_repo("file content", "dir/existing.file", |repo, commit_sha| {
-            let res =
-                git_cat_file(repo, commit_sha, "dir/existing.file").expect("should be ok");
+            let res = git_cat_file(repo, commit_sha, "dir/existing.file").expect("should be ok");
             assert_eq!(
                 std::str::from_utf8(&res).expect("valid utf8"),
                 "file content"
@@ -181,11 +173,9 @@ mod tests {
 
     // Converts a vec of string like things into a vec of owned paths.
     macro_rules! as_path_bufs {
-        ($vec: expr) => {
-            {
-                $vec.iter().map(PathBuf::from).collect::<Vec<_>>()
-            }
-        };
+        ($vec: expr) => {{
+            $vec.iter().map(PathBuf::from).collect::<Vec<_>>()
+        }};
     }
 
     fn git_ls_dir(
@@ -296,7 +286,10 @@ mod tests {
     where
         F: Fn(&Repository, &str),
     {
-        let dir = tempfile::Builder::new().prefix("testgitrepo").tempdir().expect("can't create tmp dir");
+        let dir = tempfile::Builder::new()
+            .prefix("testgitrepo")
+            .tempdir()
+            .expect("can't create tmp dir");
 
         let repo = Repository::init(&dir).expect("can't initialise repository");
 
@@ -310,7 +303,8 @@ mod tests {
         let sig = Signature::new("Foo McBarson", "foo.mcbarson@iamarealboy.net", &time)
             .expect("couldn't create signature for commit");
 
-        let commit_oid = repo.index()
+        let commit_oid = repo
+            .index()
             .and_then(|mut index| {
                 index
                     .add_path(Path::new(file))
@@ -322,9 +316,11 @@ mod tests {
                     .and_then(|tree| {
                         repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
                     })
-            }).expect("can't do first commit");
+            })
+            .expect("can't do first commit");
 
-        let commit = repo.find_object(commit_oid, None)
+        let commit = repo
+            .find_object(commit_oid, None)
             .expect("Could not find first commit.");
         repo.tag("this-is-a-tag", &commit, &sig, "This is a tag.", false)
             .expect("Could not create tag.");
@@ -334,5 +330,4 @@ mod tests {
         callback(&repo, &commit_sha);
         dir.close().expect("couldn't close the dir");
     }
-
 }
