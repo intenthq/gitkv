@@ -50,7 +50,16 @@ async fn main() -> std::io::Result<()> {
     let port = args.value_of("port").unwrap_or(DEFAULT_PORT);
     let repo_root = Path::new(args.value_of("repo-root").unwrap_or(DEFAULT_REPO_ROOT));
 
-    run_server(host, port, repo_root).await
+    match run_server(host, port, repo_root).await {
+        Ok(_) => {
+            info!("gitkv stopped gracefully");
+            std::process::exit(0);
+        }
+        Err(e) => {
+            error!("gitkv stopped due to an error: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 async fn run_server(host: &str, port: &str, repo_root: &Path) -> std::io::Result<()> {
