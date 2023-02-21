@@ -10,7 +10,7 @@ license = "MIT"
 git = { path = "../git" }
 handlers = { path = "../handlers" }
 actix = "0.10.0" # Actor communication between handlers and Git
-actix-rt = "1.1.1" # Actix macros
+actix-rt = "2.8.0" # Actix macros
 actix-web = "3.0.2" # Web framework
 clap = "4.1.6" # CLI argument parsing
 env_logger = "0.7.1" # Configure logging level with env variables
