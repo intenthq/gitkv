@@ -20,7 +20,7 @@ serde_derive = "1.0.114" # Macros for deriving Serde converstions
 serde_json = "1.0.57" # JSON support for Serde
 
 [dev-dependencies]
-assert_cmd = "1.0.1" # Run our binaries from the integration tests
+assert_cmd = "2.0.12" # Run our binaries from the integration tests
 predicates = "1.0.5" # Assert on binaries being run in the integration tests
 
 # When building for musl (ie. a static binary), we opt into the "vendored"
